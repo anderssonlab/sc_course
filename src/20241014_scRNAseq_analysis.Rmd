@@ -616,7 +616,9 @@ checkmate::assert_matrix(x, any.missing = FALSE, col.names = "unique",
 
 ##<<bookmark/under_construction>> -------------------------
 
-## [3.7.] Run analysis with subsampled data
+# [4.] Additional analysis & quality checks -------------------------
+
+## [4.0.] Subsample number of cells in initial scRNAseq features x cells matrix
 #### 100,000 instead of 733,612 input cells
 ```{r}
 sub = 1e+5
@@ -628,6 +630,7 @@ cols <- base::sample(
 pbmc_alt_data <- pbmc_data$`Gene Expression`[,cols]
 ```
 
+## [4.1.] Run analysis with subsampled data
 #### No parameters changed comapred to [1.3.] - [3.4.]
 ```{r}
 pbmc_alt <- Seurat::CreateSeuratObject(
@@ -697,8 +700,10 @@ Seurat::DimPlot(
   theme(
     aspect.ratio = 1
   )
+# base::remove(pbmc_alt,pbmc_alt_data)
 ```
 
+## [4.3.] Read out metainfo & UMAP data
 ```{r}
 assertthat::are_equal(
     x = base::rownames(pbmc_rna@meta.data),
@@ -717,6 +722,18 @@ meta_comb <- dplyr::left_join(
   )
 ```
 
+## [4.4.] Average mean cluster positions for cluster labels
+```{r}
+cls <- meta_comb %>%
+  dplyr::group_by(seurat_clusters) %>%
+  dplyr::summarise(
+      pos_1 = base::mean(umap_1),
+      pos_2 = base::mean(umap_2),
+      .groups = "drop"
+    )
+```
+
+## [4.5.] Map quality metrics onto UMAP
 ```{r}
 coef = 0.5
 cols <- base::c(
@@ -730,15 +747,24 @@ cols <- base::c(
   )
 
 ggplot2::ggplot(
-    data = meta_comb,
-    mapping = aes(
-      x = umap_1,
-      y = umap_2,
-      color = percent.mt
-    )
-  ) +
-  geom_point(
+      data = meta_comb,
+      mapping = aes(
+        x = umap_1,
+        y = umap_2,
+        color = nFeature_RNA # percent.mt # nCount_RNA, 
+      )
+    ) +
+    geom_point(
       size = 0.1
+    ) +
+  ggrepel::geom_label_repel(
+      inherit.aes = FALSE,
+      data = cls,
+      mapping = aes(
+          x = pos_1,
+          y = pos_2,
+          label = seurat_clusters
+        )
     ) +
   scale_colour_gradientn(
       colours = cols
@@ -768,13 +794,182 @@ ggplot2::ggplot(
     )
 ```
 
-
+## [4.6.] Cluster-specific quality metrics
 ```{r}
 ggplot2::ggplot(
       data = meta_comb,
       mapping = aes(
         x = seurat_clusters,
-        y = percent.mt
+        y = nFeature_RNA # percent.mt # nCount_RNA
+      )
+    ) +
+  geom_jitter(
+      alpha = 0.1,
+      height = 0,
+      width = 0.3
+    ) +
+  geom_boxplot(
+      outliers = FALSE,
+      alpha = 0.5
+    ) +
+  geom_hline(
+      yintercept = 750L,
+      linetype = "dashed"
+    ) +
+  theme_bw() +
+  theme(
+      aspect.ratio = 2
+    )
+```
+
+## [4.7.] Run analysis without removing mitoochondrial contaminations
+#### No parameters changed comapred to [1.3.] - [3.4.]
+```{r}
+base::set.seed(1)
+pbmc_qc <- Seurat::CreateSeuratObject(
+    counts = pbmc_data$`Gene Expression`,
+    assay = "RNA",
+    project = "pbmc10k",
+    min.cells = 3,
+    min.features = 200
+  )
+pbmc_qc[["percent.mt"]] <- Seurat::PercentageFeatureSet(
+    object = pbmc_qc,
+    pattern = "^MT-"
+  )
+pbmc_qc <- base::subset(
+    x = pbmc_qc,
+    subset = nFeature_RNA > 750 & nFeature_RNA < 2500 & percent.mt < 10
+  )
+pbmc_qc <- Seurat::NormalizeData(
+    object = pbmc_qc,
+    normalization.method = "LogNormalize",
+    scale.factor = 1e+4,
+    verbose = FALSE
+  )
+pbmc_qc <- Seurat::FindVariableFeatures(
+    object = pbmc_qc,
+    selection.method = "vst",
+    nfeatures = 2000L,
+    verbose = FALSE
+  )
+pbmc_qc <- Seurat::ScaleData(
+    object = pbmc_qc,
+    features = base::rownames(pbmc_alt),
+    verbose = FALSE
+  )
+pbmc_qc <- Seurat::RunPCA(
+    object = pbmc_qc,
+    features = Seurat::VariableFeatures(object = pbmc_qc),
+    npcs = 50L,
+    verbose = FALSE,
+    seed.use = 1L,
+    assay = "RNA", #default at this stage
+    layer = 'scale.data' # default
+  )
+pbmc_qc <- Seurat::FindNeighbors(
+    object = pbmc_qc,
+    dims = 1:10,
+    k.param = 20, # default
+    verbose = FALSE,
+    l2.norm = FALSE
+  )
+pbmc_qc <- Seurat::FindClusters(
+    object = pbmc_qc,
+    resolution = 0.3,
+    verbose = FALSE
+  )
+pbmc_qc <- Seurat::RunUMAP(
+    object = pbmc_qc,
+    umap.method = "uwot",
+    dims = 1:10,
+    verbose = FALSE
+  )
+Seurat::DimPlot(
+      object = pbmc_qc,
+      reduction = "umap"
+    ) +
+  theme_bw() +
+  theme(
+      aspect.ratio = 1
+    )
+```
+
+## [4.8.] Map mitochondrial contribution to UMAP
+```{r}
+meta_qc <- pbmc_qc@meta.data %>%
+  tibble::as_tibble(rownames = "cell")
+umap_qc <- pbmc_qc@reductions$umap@cell.embeddings %>%
+  tibble::as_tibble(rownames = "cell")
+
+meta_qc_comb <- dplyr::left_join(
+    x = umap_qc,
+    y = meta_qc,
+    by = "cell"
+  )
+cls <- meta_qc_comb %>%
+  dplyr::group_by(seurat_clusters) %>%
+  dplyr::summarise(
+      pos_1 = base::mean(umap_1),
+      pos_2 = base::mean(umap_2),
+      .groups = "drop"
+    )
+ggplot2::ggplot(
+      data = meta_qc_comb,
+      mapping = aes(
+        x = umap_1,
+        y = umap_2,
+        color = nFeature_RNA # percent.mt # nCount_RNA
+      )
+    ) +
+  geom_point(
+      size = 0.1
+    ) +
+  ggrepel::geom_label_repel(
+      inherit.aes = FALSE,
+      data = cls,
+      mapping = aes(
+          x = pos_1,
+          y = pos_2,
+          label = seurat_clusters
+        )
+    ) +
+  scale_colour_gradientn(
+      colours = cols
+    ) +
+  theme_bw() +
+  theme(
+      aspect.ratio = 1,
+      axis.text = element_blank(),
+      axis.ticks = element_blank()
+    ) +
+  guides(
+    fill = "none",
+    colour = guide_colourbar(
+        label.position = "right",
+        title = NULL,
+        title.position = "left",
+        title.theme = element_text(
+            angle = 90,
+            hjust = 0.5
+          ),
+        ticks = T,
+        nbin = 100,
+        barheight = 8,
+        label = T,
+        barwidth = 0.5
+      )
+    )
+```
+
+## [4.9.] Mean mitochondrial contribution per cluster
+#### Cluster 7 & 8 might potentially be doublet clusters
+```{r}
+ggplot2::ggplot(
+      data = meta_qc_comb,
+      mapping = aes(
+        x = seurat_clusters,
+        y = nCount_RNA # percent.mt # nFeature_RNA
       )
     ) +
   geom_jitter(
@@ -792,3 +987,73 @@ ggplot2::ggplot(
   )
 ```
 
+# [5.] Marker genes -------------------------
+
+## [5.0.] Identify all differential expressions
+#### Check with 'base::range(pbmc_markers$avg_log2FC)' and 'base::range(pbmc_markers$p_val)'
+```{r}
+pbmc_markers <- Seurat::FindAllMarkers(
+    object = pbmc_qc,
+    only.pos = TRUE,
+    assay = "RNA",
+    slot = "data", # "scale.data"
+    test.use = 'wilcox',
+    verbose = FALSE,
+    random.seed = 1L,
+    return.thresh = 1, # no limitation
+    logfc.threshold = -Inf # no limitation
+  )
+```
+
+## [5.1.] Inspect markers
+```{r}
+pbmc_markers %>%
+  dplyr::group_by(cluster) %>%
+  dplyr::filter(
+      p_val_adj < 1e-2 & avg_log2FC > 1
+    ) %>%
+  dplyr::summarise(
+      nFeat_sigDE = dplyr::n()
+    )
+
+pbmc_markers %>%
+  dplyr::group_by(cluster) %>%
+  dplyr::filter(
+      p_val_adj < 1e-2
+    ) %>%
+  dplyr::arrange(cluster, dplyr::desc(avg_log2FC)) %>%
+  dplyr::filter(
+      dplyr::row_number() %in% 1:10
+    )
+```
+
+
+
+# [6.] Save data -------------------------
+
+## [6.0.] Save Seurat Object pbmc_rna & the "nFeature_RNA"-cleaned version pbmc_qc
+```{r}
+base::saveRDS(
+    object = pbmc_rna,
+    file = base::paste0(
+        here::here("output_data/"),
+        base::format(base::Sys.time(),"%Y%m%d"),
+        "_pbmc_RNA",
+        ".rds"
+      ),
+    compress = TRUE
+  )
+```
+
+```{r}
+base::saveRDS(
+    object = pbmc_qc,
+    file = base::paste0(
+        here::here("output_data/"),
+        base::format(base::Sys.time(),"%Y%m%d"),
+        "_pbmc_RNA_qc",
+        ".rds"
+      ),
+    compress = TRUE
+  )
+```
