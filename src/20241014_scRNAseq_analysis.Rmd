@@ -1,0 +1,109 @@
+---
+title: "20241014_workflow_scRNAseq"
+output: html_document
+date: "2024-10-14"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## [0.] Prerequisites -------------------------
+
+## [-1.0.] Avoid gcc compiler problems
+```{r}
+base::Sys.setenv(
+  PATH = base::paste(
+      "/opt/software/gcc/11.2.0/bin",
+      base::Sys.getenv("PATH"),
+      sep = ":"
+    )
+  )
+base::Sys.setenv(
+    CXX = "/opt/software/gcc/11.2.0/bin/g++"
+  )
+```
+
+## [-1.1.] Install necessary packages
+```{r eval=FALSE}
+utils::install.packages("here")
+# utils::install.packages("tidyverse")
+```
+
+## [-1.2.] Check version of packages
+```{r eval=FALSE}
+utils::packageVersion("Seurat")
+```
+
+## [0.0.] Load necessary packages
+```{r message=FALSE}
+base::library("Seurat")
+# base::library("tidyverse")
+```
+
+## [1.] Read in & preprocess data -------------------------
+
+## [1.0.] Check that directory exists
+```{r}
+dir <- base::paste0(
+    here::here("input_data/"),
+    "raw_feature_bc_matrix/"
+  )
+base::dir.exists(paths = dir)
+```
+
+## [1.1.] Read in data as sparse matrices
+#### Data read in as dgCMatrices
+```{r}
+pbmc_data <- Seurat::Read10X(
+    data.dir = dir,
+    gene.column = 2, # column specifying gene names in features.tsv.gz
+    cell.colum = 1 # column specifying the cell ID in barcodes.tsv.gz
+  )
+```
+
+## [1.2.] Inspect data & calculate sparsity
+#### See https://slowkow.com/notes/sparse-matrix/ for more info on how to access data in dgCMatrices
+#### Sparse data most optimally saved in dgCMatrices
+```{r}
+utils::str(pbmc_data) # Inspect data
+pbmc_data$`Gene Expression`[1:5,1:5] ##
+base::dim(pbmc_data$`Gene Expression`)
+100 - (base::length(pbmc_data$`Gene Expression`@x) / base::prod(pbmc_data$`Gene Expression`@Dim))*100 # Sparsity
+```
+
+## [1.3.] Create a Seurat object from the scRNAseq data
+```{r}
+pbmc_rna <- Seurat::CreateSeuratObject(
+    counts = pbmc_data$`Gene Expression`, ## Specify scRNAseq
+    assay = "RNA",
+    project = "pbmc3k",
+    min.cells = 3, # minimal amount of cells expressing a feature
+    min.features = 200 # minimal amount of features detected per cell
+  )
+```
+
+```{r eval=FALSE}
+# pbmc_multi <- Seurat::CreateSeuratObject(
+#     counts = pbmc_data, ## Specify scRNAseq
+#     assay = "Multi",
+#     project = "pbmc3k",
+#     min.cells = 3, # minimal amount of cells expressing a feature
+#     min.features = 200 # minimal amount of features detected per cell
+#   )
+# utils::str(pbmc_multi)
+```
+
+## [1.4.] Inspect the Seurat object
+#### Filtering in [1.3.] reduced the number of rows and columns
+```{r}
+utils::str(pbmc_rna)
+base::dim(pbmc_rna) # base::dim(pbmc_rna@assays$RNA@layers$counts)
+pbmc_rna@assays$RNA@layers$counts[1:5,1:5]
+100 - (base::length(pbmc_rna@assays$RNA@layers$counts@x) / base::prod(pbmc_rna@assays$RNA@layers$counts@Dim))*100 # Sparsity
+```
+
+
+
+
+##  gunzip -c features.tsv.gz | cut -f2 | grep '^MT-' | head
