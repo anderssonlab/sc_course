@@ -11,7 +11,7 @@
 # if (!require("BiocManager", quietly = TRUE))
 #   install.packages("BiocManager")
 # 
-# BiocManager::install("AnnotationHub")
+# # BiocManager::install("AnnotationHub")
 # install.packages("https://cran.r-project.org/src/contrib/Archive/dbplyr/dbplyr_2.3.4.tar.gz")
 # BiocManager::install("ensembldb")
 # BiocManager::install("biovizBase")
@@ -22,6 +22,7 @@
 # BiocManager::install("JASPAR2020")
 # BiocManager::install("motifmatchr")
 # install.packages('ggseqlogo')
+# BiocManager::install("EnsDb.Hsapiens.v86")
 
 
 
@@ -69,24 +70,31 @@ peaks.keep <- seqnames(granges(pbmc)) %in% standardChromosomes(granges(pbmc))
 pbmc <- pbmc[as.vector(peaks.keep), ]
 
 
-library(AnnotationHub)
-ah <- AnnotationHub()
+# library(AnnotationHub)
+# ah <- AnnotationHub()
+# 
+# # Search for the Ensembl 98 EnsDb for Homo sapiens on AnnotationHub
+# query(ah, "EnsDb.Hsapiens.v98")
+# 
+# ensdb_v98 <- ah[["AH75011"]]
+# 
+# # extract gene annotations from EnsDb
+# annotations <- GetGRangesFromEnsDb(ensdb = ensdb_v98)
+# 
+# # change to UCSC style since the data was mapped to hg38
+# seqlevels(annotations) <- paste0('chr', seqlevels(annotations))
+# genome(annotations) <- "hg38"
+# 
+# 
+# # add the gene information to the object
+# Annotation(pbmc) <- annotations
 
-# Search for the Ensembl 98 EnsDb for Homo sapiens on AnnotationHub
-query(ah, "EnsDb.Hsapiens.v98")
+library(EnsDb.Hsapiens.v86)
+annotation <- GetGRangesFromEnsDb(ensdb = EnsDb.Hsapiens.v86)
+seqlevels(annotation) <- paste0('chr', seqlevels(annotation))
 
-ensdb_v98 <- ah[["AH75011"]]
-
-# extract gene annotations from EnsDb
-annotations <- GetGRangesFromEnsDb(ensdb = ensdb_v98)
-
-# change to UCSC style since the data was mapped to hg38
-seqlevels(annotations) <- paste0('chr', seqlevels(annotations))
-genome(annotations) <- "hg38"
-
-
-# add the gene information to the object
-Annotation(pbmc) <- annotations
+# Add the gene information to the object
+Annotation(pbmc) <- annotation
 
 
 # compute nucleosome signal score per cell

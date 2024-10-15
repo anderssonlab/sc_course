@@ -301,5 +301,87 @@ Seurat::DimHeatmap(
     nfeatures = 10,
     slot = "scale.data"
   )
+
+Seurat::ElbowPlot(
+      object = pbmc_rna,
+      ndims = 50,
+      reduction = "pca"
+    ) +
+  geom_hline(
+      yintercept = 1.3,
+      linetype = "dashed"
+    ) +
+  geom_vline(
+      xintercept = base::c(5,10),
+      linetype = "dashed"
+    )
+```
+
+#### Resampling method using JackStraw
+#### Time consuming approach
+```{r}
+# pbmc_rna_ <- Seurat::JackStraw(
+#     object = pbmc_rna,
+#     dims = 50,
+#     num.replicate = 100
+#   )
+# pbmc_rna_ <- Seurat::ScoreJackStraw(
+#     object = pbmc_rna_,
+#     dims = 1:50,
+#     score.thresh = 1e-05
+#   )
+# Seurat::JackStrawPlot(
+#     object = pbmc_rna_,
+#     dims = 1:50
+#   )
+```
+
+# [3.] Cell clustering -------------------------
+#### Seurat performs clustering based on PCA scores of features (genes) in cells
+#### Choice of included PCAs based on resampling test and Elbow plots
+
+## [3.0.] Calculate nearest neighbors and corresponding graph
+#### k-NN graph calculation based on cell distances in PCA latent space
+#### refinement of graph edges based on similarity between neighborhoods
+#### Uses RcppAnnoy::AnnoyEuclidean, RANN::nn2 (NNHelper) and for calculating
+#### the shared nearest neighbour graph SNN_SmallestNonzero_Dist imnplemented via Rcpp (ComputeSNN)
+```{r}
+Seurat::DefaultAssay(object = pbmc_rna) # assay: "RNA"
+SeuratObject::Embeddings(object = pbmc_rna[["pca"]]) # data.use: cell x PCA
+
+pbmc_rna <- Seurat::FindNeighbors(
+    object = pbmc_rna,
+    dims = 1:10,
+    k.param = 20, # default
+    verbose = FALSE,
+    l2.norm = FALSE
+  )
+```
+## [3.1.] Inspect graph
+```{r}
+utils::str(pbmc_rna)
+pbmc_rna@graphs
+```
+
+## [3.2.]
+```{r}
+pbmc_rna <- Seurat::FindClusters(
+    object = pbmc_rna,
+    resolution = 0.5, # <----parameter
+    verbose = FALSE
+  )
+```
+
+```{r warning=FALSE}
+pbmc_rna <- Seurat::RunUMAP(
+    object = pbmc_rna,
+    umap.method = "uwot",
+    dims = 1:10,
+    verbose = FALSE
+  )
+```
+
+```{r}
+
 ```
 
