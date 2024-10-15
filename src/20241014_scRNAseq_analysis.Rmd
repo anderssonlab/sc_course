@@ -28,6 +28,9 @@ base::Sys.setenv(
 ```{r eval=FALSE}
 utils::install.packages("here")
 # utils::install.packages("tidyverse")
+# libtiff-4
+# lubridate
+# systemfonts
 ```
 
 ## [-1.2.] Check version of packages
@@ -73,6 +76,7 @@ base::dim(pbmc_data$`Gene Expression`)
 ```
 
 ## [1.3.] Create a Seurat object from the scRNAseq data
+#### Seurat objects are S3 object-oriented objects, see https://adv-r.hadley.nz/s3.html
 ```{r}
 pbmc_rna <- Seurat::CreateSeuratObject(
     counts = pbmc_data$`Gene Expression`, ## Specify scRNAseq
@@ -83,9 +87,10 @@ pbmc_rna <- Seurat::CreateSeuratObject(
   )
 ```
 
+#### Alternatively create a Seurat object from both matrices
 ```{r eval=FALSE}
 # pbmc_multi <- Seurat::CreateSeuratObject(
-#     counts = pbmc_data, ## Specify scRNAseq
+#     counts = pbmc_data,
 #     assay = "Multi",
 #     project = "pbmc3k",
 #     min.cells = 3, # minimal amount of cells expressing a feature
@@ -96,14 +101,205 @@ pbmc_rna <- Seurat::CreateSeuratObject(
 
 ## [1.4.] Inspect the Seurat object
 #### Filtering in [1.3.] reduced the number of rows and columns
+#### dimensions: 26315 10987; sparsity: 94.39873
 ```{r}
 utils::str(pbmc_rna)
-base::dim(pbmc_rna) # base::dim(pbmc_rna@assays$RNA@layers$counts)
+base::dim(pbmc_rna) # base::dim(pbmc_rna@assays$RNA@layers$counts) 
 pbmc_rna@assays$RNA@layers$counts[1:5,1:5]
 100 - (base::length(pbmc_rna@assays$RNA@layers$counts@x) / base::prod(pbmc_rna@assays$RNA@layers$counts@Dim))*100 # Sparsity
 ```
 
+## [1.5.] Detect & count mitochondrial gene contribution
+#### On terminal:  gunzip -c features.tsv.gz | cut -f2 | grep '^MT-' | head
+```{r}
+## base::dimnames(pbmc_rna@assays$RNA@features@.Data)[[1]]
+feat_names <- base::rownames(pbmc_rna) ## base::colnames(pbmc_rna)
+feat_names[base::grep("^MT-",feat_names)]
+  
+pbmc_rna[["percent.mt"]] <- Seurat::PercentageFeatureSet(
+    object = pbmc_rna,
+    pattern = "^MT-"
+  )
+```
 
+## [1.6.] Inspect & visualize features, including mitochondrial gene contribution
+```{r}
+pbmc_rna@meta.data # Inspect new variable
+base::colnames(pbmc_rna[[]])
 
+Seurat::VlnPlot(
+    object = pbmc_rna,
+    features = base::colnames(pbmc_rna[[]])[2:4],
+    ncol = 3
+  )
+base::mean(pbmc_rna@meta.data$percent.mt)
 
-##  gunzip -c features.tsv.gz | cut -f2 | grep '^MT-' | head
+Seurat::FeatureScatter(
+      object = pbmc_rna,
+      feature1 = "nCount_RNA",
+      feature2 = "percent.mt"
+    ) +
+  geom_density2d() +
+  geom_hline(
+      yintercept = base::c(5,10),
+      linetype = "dashed"
+    )
+
+Seurat::FeatureScatter(
+      object = pbmc_rna,
+      feature1 = "nCount_RNA",
+      feature2 = "nFeature_RNA"
+    ) +
+  geom_density2d() +
+  geom_hline(
+      yintercept = base::c(200L,2500L),
+      linetype = "dashed"
+    )
+```
+
+## [1.7.] Filter cells
+#### Based on inspection in [1.6.]
+#### Removes empty droplets, droplets with ≥ 2 cells, apoptotic cells or cells with insufficiently captured transcripts
+#### dimensions: 26315 7573; sparsity: 94.87731
+```{r}
+pbmc_rna <- base::subset(
+    x = pbmc_rna,
+    subset = nFeature_RNA > 200 & nFeature_RNA < 2500 & percent.mt < 10
+  )
+base::dim(pbmc_rna)
+100 - (base::length(pbmc_rna@assays$RNA@layers$counts@x) / base::prod(pbmc_rna@assays$RNA@layers$counts@Dim))*100 # Sparsity
+```
+
+# [2.] Process data - Normalize, scale, reduce dimensions -------------------------
+
+## [2.0.] Normalization
+```{r}
+pbmc_rna <- Seurat::NormalizeData(
+    object = pbmc_rna,
+    normalization.method = "LogNormalize",
+    scale.factor = 1e+4,
+    verbose = FALSE
+  )
+```
+
+## [2.1.] Inspect normalized data
+```{r}
+utils::str(pbmc_rna)
+pbmc_rna@assays$RNA@layers$data
+pbmc_rna[["RNA"]]$data
+```
+
+##<<boomark/SCTransform()>>
+
+## [2.2.] Find most highly variably expressed genes
+#### Identification of features (genes) with highest variability across all cells to apply variance-stabilizing data transformation 
+```{r}
+pbmc_rna <- Seurat::FindVariableFeatures(
+    object = pbmc_rna,
+    selection.method = "vst",
+    nfeatures = 2000L,
+    verbose = FALSE
+  )
+```
+
+## [2.3.] Inspect variable genes
+```{r}
+utils::str(pbmc_rna)
+pbmc_rna@assays$RNA@meta.data
+  
+lbls <- Seurat::VariableFeatures(object = pbmc_rna)[1:10]
+raw <- Seurat::VariableFeaturePlot(
+    object = pbmc_rna
+  )
+Seurat::LabelPoints(
+      plot = raw,
+      points = lbls,
+      repel = TRUE
+    ) +
+  geom_density2d() +
+  geom_hline(
+      yintercept = 1.25,
+      linetype = "dashed"
+    )
+```
+
+## [2.4.] Scale across dataset
+#### Linear transformation for each feature (gene) across the variable genes to prepare principal component analysis (PCA)
+#### Scale across all genes as default is to perform scaling only on the variable features
+```{r}
+pbmc_rna <- Seurat::ScaleData(
+    object = pbmc_rna,
+    features = base::rownames(pbmc_rna),
+    verbose = FALSE
+  )
+```
+
+#### Alternative is to use scaling for removal of potential sources of variation, e.g., mitochondrial reads or cell cycle phase
+```{r}
+# pbmc_rna <- Seurat::ScaleData(
+#     object = pbmc_rna,
+#     vars.to.regress = "percent.mt"
+#   )
+```
+
+## [2.5.] Run principal component analysis
+#### RunPCA when called on a Seurat objects operates on the scale.data slot of the assay by default
+#### Seurat:::PrepDR5() function prepares internally the data to be used for PCA
+```{r}
+Seurat::DefaultAssay(object = pbmc_rna)
+SeuratObject::Layers(object = pbmc_rna)
+SeuratObject::LayerData(object = pbmc_rna, layer = "scale.data")[1:10,1:10]
+
+pbmc_rna <- Seurat::RunPCA(
+    object = pbmc_rna,
+    features = Seurat::VariableFeatures(object = pbmc_rna),
+    npcs = 50L,
+    verbose = FALSE,
+    seed.use = 1L,
+    assay = "RNA", #default at this stage
+    layer = 'scale.data' # default
+  )
+```
+
+## [2.6.] Inspect PCA results
+```{r}
+utils::str(pbmc_rna)
+pbmc_rna[["pca"]]
+pbmc_rna@reductions$pca@feature.loadings
+
+base::print(
+    pbmc_rna[["pca"]],
+    dims = 1:3,
+    nfeatures = 10
+  )
+Seurat::VizDimLoadings(
+    object = pbmc_rna,
+    dims = 1:3,
+    reduction = "pca",
+    ncol = 3,
+    nfeatures = 10
+  )
+Seurat::DimPlot(
+      object = pbmc_rna,
+      reduction = "pca",
+      dims = 1:2
+    ) +
+  theme_bw() +
+  theme(
+      legend.position = "none",
+      aspect.ratio = 1
+    )
+```
+
+## [2.7.] Inspect dimensionality of the data
+```{r}
+Seurat::DimHeatmap(
+    object = pbmc_rna,
+    dims = 1:15,
+    cells = 500, # top 500 cells
+    balanced = TRUE,
+    nfeatures = 10,
+    slot = "scale.data"
+  )
+```
+
