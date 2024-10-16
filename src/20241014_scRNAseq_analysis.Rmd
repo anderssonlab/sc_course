@@ -1007,6 +1007,7 @@ pbmc_markers <- Seurat::FindAllMarkers(
 ```
 
 ## [5.1.] Inspect markers
+#### Matching of canonical cell type markers to identified unbiased marker genes
 ```{r}
 pbmc_markers %>%
   dplyr::group_by(cluster) %>%
@@ -1027,6 +1028,37 @@ pbmc_markers %>%
       dplyr::row_number() %in% 1:10
     )
 ```
+
+
+#### Default plotting via 'Seurat::FeaturePlot(pbmc_qc, features = "CD8A")'
+#### Access to genes via 'SeuratObject::Features(x = pbmc_qc,layer = "data")'
+```{r}
+Seurat::FetchData(
+    object = pbmc_qc,
+    vars = base::c("CD8A","umap_1","umap_2"),
+    cells = base::colnames(x = pbmc_qc),
+    assay = "RNA",
+    layer = "data"
+  )
+
+m <- pbmc_qc@assays$RNA@layers$data
+base::colnames()
+
+  
+tibble::enframe(
+  SeuratObject::LayerData(
+      object = pbmc_qc,
+      layer = "data",
+      cells = base::colnames(x = pbmc_qc),
+      features = base::rownames(x = pbmc_qc)
+    )["CD8A",]
+  )
+
+
+
+Key(object = object)
+```
+
 
 ## [5.2.] Read in reference data
 ```{r}
@@ -1103,12 +1135,12 @@ meta_qc <- pbmc_qc@meta.data %>%
   tibble::as_tibble(rownames = "cell")
 umap_qc <- pbmc_qc@reductions$umap@cell.embeddings %>%
   tibble::as_tibble(rownames = "cell")
-
 meta_qc_comb <- dplyr::left_join(
     x = umap_qc,
     y = meta_qc,
     by = "cell"
   )
+
 cls <- meta_qc_comb %>%
   dplyr::group_by(predicted.id) %>%
   dplyr::summarise(
@@ -1116,6 +1148,7 @@ cls <- meta_qc_comb %>%
       pos_2 = base::mean(umap_2),
       .groups = "drop"
     )
+
 ggplot2::ggplot(
       data = meta_qc_comb,
       mapping = aes(
