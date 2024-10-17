@@ -27,6 +27,7 @@ base::Sys.setenv(
 ## [-1.1.] Install necessary packages
 #### Missing packages: libtiff-4, lubridate, systemfonts
 ```{r eval=FALSE}
+utils::install.packages("tidyverse")
 utils::install.packages("here")
 utils::install.packages("assertthat")
 
@@ -34,8 +35,17 @@ utils::install.packages("ape") # used for BuildClusterTree in [3.5.]
 utils::install.packages("tidygraph")
 utils::install.packages("ggraph")
 utils::install.packages("clustree") # used in [3.6.]
-
-# utils::install.packages("tidyverse")
+utils::install.packages("WriteXLS")
+utils::install.packages("ellipsis")
+utils::install.packages("pkgbuild")
+utils::install.packages("pkgload")
+utils::install.packages("profvis")
+utils::install.packages("remotes")
+utils::install.packages("sessioninfo")
+utils::install.packages("urlchecker")
+utils::install.packages("usethis")
+devtools::install_github("wjawaid/enrichR")
+utils::install.packages("enrichR") # used in [5.9.]
 ```
 
 ## [-1.2.] Check version of packages
@@ -1174,20 +1184,27 @@ meta_qc_comb %>%
   dplyr::filter(predicted.id == "Platelet")
 ```
 
-## [5.9.]
+## [5.9.] Plot significantly enriched pathways between two cell types
 ```{r}
-dplyr::distinct(meta_qc_comb,predicted.id)
+dplyr::distinct(meta_qc_comb,predicted.id,seurat_clusters)
+base::library(enrichR)
+enrichR::listEnrichrSites()
+enrichR::setEnrichrSite("Enrichr")
+dbs <- enrichR::listEnrichrDbs()
+
 Seurat::DEenrichRPlot(
     object = pbmc_qc,
-    ident.1 = "CD8 effector",
-    ident.2 = "CD8 Naive",
+    ident.1 = base::c(5),
+    ident.2 = base::c(1,7),
     balanced = TRUE,
     logfc.threshold = 0.25,
     assay = "RNA",
     layer = "data",
     test.use = "wilcox",
     p.val.cutoff = 0.05,
-    cols = pal
+    cols = pal,
+    enrich.database = "GO_Molecular_Function_2015",
+    max.genes = base::length(base::rownames(pbmc_qc))
   )
 ```
 
@@ -1249,6 +1266,9 @@ Seurat::DimPlot(
       aspect.ratio = 1
     )
 ```
+
+## Question: Does SCTransform recapitulate the cell type distribution identified via transferred annotations better?
+#### (e.g., better separation of small clusters like 'Double negative T-cells')
 
 # [6.] Save & load data -------------------------
 
