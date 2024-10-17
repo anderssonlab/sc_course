@@ -1,5 +1,5 @@
 ---
-title: "20241017_workflow_scRNAseq_advanced"
+title: "Novo Nordisk Applied Single Cell Analysis course October 2024 - scRNAseq analysis advanced"
 output: html_document
 date: "2024-10-17"
 ---
@@ -8,9 +8,47 @@ date: "2024-10-17"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# [4.] Additional analysis & quality checks
+---
 
-## [4.0.] Subsample number of cells in initial scRNAseq features x cells matrix
+## [0.] Prerequisites
+
+### [0.0.] Read in data
+#### See [1.0.] - [1.1.] in '20241014_scRNAseq_analysis.Rmd'.
+```{r}
+dir <- base::paste0(
+    here::here("input_data/"),
+    "raw_feature_bc_matrix/"
+  )
+pbmc_data <- Seurat::Read10X(
+    data.dir = dir,
+    gene.column = 2,
+    cell.colum = 1
+  )
+```
+
+#### See [6.0.] in '20241014_scRNAseq_analysis.Rmd'.
+```{r}
+pbmc_rna <- base::list.files(
+      path = here::here("output_data"),
+      full.names = TRUE
+    ) %>%
+  stringr::str_subset("RNA.rds") %>%
+  base::readRDS(
+      file = .
+    )
+```
+
+### [0.1.] Load necessary packages
+```{r message=FALSE}
+base::library("Seurat")
+base::library("tidyverse")
+```
+
+---
+
+## [4.] Additional analysis & quality checks
+
+### [4.0.] Subsample number of cells in initial scRNAseq features x cells matrix
 #### 100,000 instead of 733,612 input cells.
 ```{r}
 base::set.seed(1)
@@ -23,7 +61,7 @@ cols <- base::sample(
 pbmc_alt_data <- pbmc_data$`Gene Expression`[,cols]
 ```
 
-## [4.1.] Run analysis with subsampled cells
+### [4.1.] Run analysis with subsampled cells
 #### No parameters changed comapred to [1.3.] - [3.4.] in '20241014_scRNAseq_analysis.Rmd'.
 ```{r}
 base::set.seed(1)
@@ -97,8 +135,12 @@ Seurat::DimPlot(
 base::remove(pbmc_alt,pbmc_alt_data)
 ```
 
-## [4.2.] Subsample reads in gene expression matrix
+---
+
+### [4.2.] Subsample reads in gene expression matrix
 #### From 38.067.789 to 10.000.000 or 5.000.000.
+#### See https://github.com/barkasn/nbHelpers/blob/master/R/subSampleCountMatrix.R
+#### for 'nbHelpers::subSampleCountMatrix2()' function.
 ```{r}
 base::set.seed(1)
 fin = 5e6 # 1e+7
@@ -130,7 +172,7 @@ base::sum(pbmc_alt_data@x)
 base::remove(r,t,mat,cur,rmv,smp,pos,n)
 ```
 
-## [4.3.] Run analysis with subsampled reads
+### [4.3.] Run analysis with subsampled reads
 #### No parameters changed comapred to [1.3.] - [3.4.] in '20241014_scRNAseq_analysis.Rmd'.
 ```{r}
 base::set.seed(1)
@@ -204,7 +246,9 @@ Seurat::DimPlot(
 base::remove(pbmc_alt,pbmc_alt_data)
 ```
 
-## [4.4.] Read out metainfo & UMAP data
+---
+
+### [4.4.] Read out metainfo & UMAP data
 ```{r}
 assertthat::are_equal(
     x = base::rownames(pbmc_rna@meta.data),
@@ -223,7 +267,7 @@ meta_comb <- dplyr::left_join(
   )
 ```
 
-## [4.5.] Average mean cluster positions for cluster labels
+### [4.5.] Average mean cluster positions for cluster labels
 ```{r}
 cls <- meta_comb %>%
   dplyr::group_by(seurat_clusters) %>%
@@ -234,7 +278,7 @@ cls <- meta_comb %>%
     )
 ```
 
-## [4.6.] Map quality metrics onto UMAP
+### [4.6.] Map quality metrics onto UMAP
 ```{r}
 coef = 0.5
 cols <- base::c(
@@ -295,7 +339,7 @@ ggplot2::ggplot(
     )
 ```
 
-## [4.7.] Cluster-specific quality metrics
+### [4.7.] Cluster-specific quality metrics
 ```{r}
 ggplot2::ggplot(
       data = meta_comb,
@@ -323,7 +367,9 @@ ggplot2::ggplot(
     )
 ```
 
-## [4.8.] Rerun analysis by changing QC cut-offs
+---
+
+### [4.8.] Rerun analysis by changing QC cut-offs
 #### No parameters changed comapred to [1.3.] - [3.4.] in '20241014_scRNAseq_analysis.Rmd'.
 #### Elbow plot looks identical to pbmc_rna.
 ```{r}
@@ -356,7 +402,7 @@ pbmc_qc <- Seurat::FindVariableFeatures(
   )
 pbmc_qc <- Seurat::ScaleData(
     object = pbmc_qc,
-    features = base::rownames(pbmc_alt),
+    features = base::rownames(pbmc_qc),
     verbose = FALSE
   )
 pbmc_qc <- Seurat::RunPCA(
@@ -379,14 +425,14 @@ pbmc_qc <- Seurat::FindClusters(
     object = pbmc_qc,
     resolution = 0.3,
     verbose = FALSE,
-    random.seed = 0
+    random.seed = 0L
   )
 pbmc_qc <- Seurat::RunUMAP(
     object = pbmc_qc,
     umap.method = "uwot",
     dims = 1:10,
     verbose = FALSE,
-    seed.use = 42
+    seed.use = 42L
   )
 Seurat::DimPlot(
       object = pbmc_qc,
@@ -398,7 +444,7 @@ Seurat::DimPlot(
     )
 ```
 
-## [4.9.] Map e.g., mitochondrial contribution to UMAP
+### [4.9.] Map e.g., mitochondrial contribution to UMAP
 ```{r}
 meta_qc <- pbmc_qc@meta.data %>%
   tibble::as_tibble(rownames = "cell")
@@ -466,8 +512,7 @@ ggplot2::ggplot(
     )
 ```
 
-## [4.10.] Mean e.g., mitochondrial contribution per cluster
-#### Cluster 7 & 8 might potentially be doublet clusters
+### [4.10.] Mean e.g., mitochondrial contribution per cluster
 ```{r}
 ggplot2::ggplot(
       data = meta_qc_comb,
@@ -491,13 +536,17 @@ ggplot2::ggplot(
   )
 ```
 
-## Question: Do cluster 7 & 8 consist of doublets or are these biologically meaningful cell types?
-## (e.g., annotations, doublet detection)
+---
 
-# [5.] Marker genes -------------------------
+#### Question: Do cluster 7 & 8 consist of doublets or are these biologically meaningful cell types?
+#### (e.g., annotations, doublet detection)
 
-## [5.0.] Identify all differential expressions
-#### Check with 'base::range(pbmc_markers$avg_log2FC)' and 'base::range(pbmc_markers$p_val)'
+---
+
+## [5.] Marker genes
+
+### [5.0.] Identify all differential expressions
+#### Check with 'base::range(pbmc_markers$avg_log2FC)' and 'base::range(pbmc_markers$p_val)'.
 ```{r}
 pbmc_markers <- Seurat::FindAllMarkers(
     object = pbmc_qc,
@@ -512,8 +561,8 @@ pbmc_markers <- Seurat::FindAllMarkers(
   )
 ```
 
-## [5.1.] Inspect markers
-#### Matching of canonical cell type markers to identified unbiased marker genes
+### [5.1.] Inspect markers
+#### Matching of canonical cell type markers to identified unbiased marker genes.
 ```{r}
 pbmc_markers %>%
   dplyr::group_by(cluster) %>%
@@ -535,10 +584,10 @@ pbmc_markers %>%
     )
 ```
 
-## [5.2.] Read out gene expression values from Seurat object
-#### Default plotting via 'Seurat::FeaturePlot(pbmc_qc, features = "CD8A")'
-#### Access to genes via 'SeuratObject::Features(x = pbmc_qc,layer = "data")'
-```{r}
+### [5.2.] Read out gene expression values from Seurat object
+#### Default plotting via 'Seurat::FeaturePlot(pbmc_qc, features = "CD8A")'.
+#### Access to genes via 'SeuratObject::Features(x = pbmc_qc,layer = "data")'.
+```{r eval=FALSE}
 gene <- "CD8A"
 
 Seurat::FetchData(
@@ -559,8 +608,9 @@ tibble::enframe(
   )
 ```
 
-#### Direct access
+#### Use direct access to the S3 Seurat object data.
 ```{r}
+gene <- "CD8A"
 m <- pbmc_qc@assays$RNA@layers$data
 base::colnames(m) <- base::colnames(pbmc_qc)
 base::rownames(m) <- base::rownames(pbmc_qc)
@@ -575,7 +625,7 @@ ge_comb <- dplyr::left_join(
   )
 ```
 
-## [5.3.] Plot gene expression values onto the UMAP projection
+### [5.3.] Plot gene expression values onto the UMAP projection
 ```{r}
 coef = 0.5
 cols <- base::c(
@@ -610,7 +660,7 @@ ggplot2::ggplot(
     )
 ```
 
-## [5.4.] Read in reference data
+### [5.4.] Read in reference data
 ```{r message=FALSE, warning=FALSE}
 ref <- base::readRDS(
     file = base::paste0(
@@ -621,7 +671,7 @@ ref <- base::readRDS(
 ref <- Seurat::UpdateSeuratObject(object = ref)
 ```
 
-## [5.5.] Inspect reference dataset
+### [5.5.] Inspect reference dataset
 ```{r}
 utils::str(ref)
 ref@meta.data
@@ -635,7 +685,7 @@ Seurat::DimPlot(
     )
 ```
 
-## [5.6.] Transfer annotations via identified anchors
+### [5.6.] Transfer annotations via identified anchors
 ```{r}
 pbmc_anchors <- Seurat::FindTransferAnchors(
     reference = ref,
@@ -656,7 +706,7 @@ pbmc_qc <- Seurat::AddMetaData(
   )
 ```
 
-## [5.7.] Inspect & plot data
+### [5.7.] Inspect & plot data
 ```{r}
 pbmc_qc@meta.data
 Seurat::DimPlot(
@@ -670,7 +720,7 @@ Seurat::DimPlot(
     )
 ```
 
-## [5.8.] Label predicted IDs onto the UMAP dimension reduction
+### [5.8.] Label predicted IDs onto the UMAP dimension reduction
 ```{r}
 pal <- base::c(
     "#3255A4", "#A4DBE8", "#8C8279",
@@ -732,14 +782,18 @@ ggplot2::ggplot(
     )
 ```
 
-## Question: Are platelets a real cluster or ambient RNA?
+---
+
+#### Question: Are platelets a real cluster or ambient RNA?
 
 ```{r}
 meta_qc_comb %>%
   dplyr::filter(predicted.id == "Platelet")
 ```
 
-## [5.9.] Plot significantly enriched pathways between two cell types
+---
+
+### [5.9.] Plot significantly enriched pathways between two cell types
 ```{r}
 dplyr::distinct(meta_qc_comb,predicted.id,seurat_clusters)
 base::library(enrichR)
@@ -763,8 +817,10 @@ Seurat::DEenrichRPlot(
   )
 ```
 
-## [5.10.] SCTransform
-#### NO QC filtering performed
+---
+
+### [5.10.] SCTransform
+#### No QC filtering performed, which leads to inclusion of contaminations again.
 ```{r}
 base::set.seed(1L)
 pbmc_sct <- Seurat::CreateSeuratObject(
@@ -822,23 +878,27 @@ Seurat::DimPlot(
     )
 ```
 
-## Question: Does SCTransform recapitulate the cell type distribution identified via transferred annotations better?
+---
+
+#### Question: Does SCTransform recapitulate the cell type distribution identified via transferred annotations better?
 #### (e.g., better separation of small clusters like 'Double negative T-cells')
 
-# [6.] Save & load data -------------------------
+---
 
-#### Older version without annotations 20241015_pbmc_RNA_qc.rds
-```{r}
-# base::saveRDS(
-#     object = pbmc_qc,
-#     file = base::paste0(
-#         here::here("output_data/"),
-#         base::format(base::Sys.time(),"%Y%m%d"),
-#         "_pbmc_RNA_qc_annotated",
-#         ".rds"
-#       ),
-#     compress = TRUE
-#   )
+## [6.] Save & load data
+
+### [6.1.] Save the "nFeature_RNA"-cleaned and annotated version pbmc_qc
+```{r eval=FASLE}
+base::saveRDS(
+    object = pbmc_qc,
+    file = base::paste0(
+        here::here("output_data/"),
+        base::format(base::Sys.time(),"%Y%m%d"),
+        "_pbmc_RNA_qc_annotated",
+        ".rds"
+      ),
+    compress = TRUE
+  )
 ```
 
 ```{r}
@@ -850,4 +910,5 @@ pbmc_qc <- base::list.files(
   base::readRDS(
       file = .
     )
+utils::str(pbmc_qc)
 ```

@@ -1,5 +1,5 @@
 ---
-title: "20241014_workflow_scRNAseq"
+title: "Novo Nordisk Applied Single Cell Analysis course October 2024 - scRNAseq analysis"
 output:
   html_document: default
   pdf_document: default
@@ -9,6 +9,8 @@ date: "2024-10-14"
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+
+---
 
 ## [0.] Prerequisites
 
@@ -49,21 +51,23 @@ devtools::install_github("wjawaid/enrichR")
 utils::install.packages("enrichR") # used in [5.9.]
 ```
 
-## [0.2.] Check version of packages
+### [0.2.] Check version of packages
 #### Worfklow relies on Seurat v5 (v5.1.0).
 ```{r eval=FALSE}
 utils::packageVersion("Seurat")
 ```
 
-## [0.3.] Load necessary packages
+### [0.3.] Load necessary packages
 ```{r message=FALSE}
 base::library("Seurat")
 base::library("tidyverse")
 ```
 
+---
+
 ## [1.] Read in & preprocess data
 
-## [1.0.] Check that directory exists
+### [1.0.] Check that directory exists
 ```{r}
 dir <- base::paste0(
     here::here("input_data/"),
@@ -72,7 +76,7 @@ dir <- base::paste0(
 base::dir.exists(paths = dir)
 ```
 
-## [1.1.] Read in data as sparse matrices
+### [1.1.] Read in data as sparse matrices
 #### Data read in as dgCMatrices.
 ```{r}
 pbmc_data <- Seurat::Read10X(
@@ -82,7 +86,7 @@ pbmc_data <- Seurat::Read10X(
   )
 ```
 
-## [1.2.] Inspect data & calculate sparsity
+### [1.2.] Inspect data & calculate sparsity
 #### See https://slowkow.com/notes/sparse-matrix/ for more info on how to access data in dgCMatrices.
 #### Sparse data most optimally saved in dgCMatrices.
 #### Dimensions: 36601 x 733612, Sparsity: 99.92142
@@ -93,7 +97,7 @@ base::dim(pbmc_data$`Gene Expression`)
 100 - (base::length(pbmc_data$`Gene Expression`@x) / base::prod(pbmc_data$`Gene Expression`@Dim))*100 # Sparsity
 ```
 
-## [1.3.] Create a Seurat object from the scRNAseq data
+### [1.3.] Create a Seurat object from the scRNAseq data
 #### Seurat objects are S3 object-oriented objects, see https://adv-r.hadley.nz/s3.html.
 ```{r}
 pbmc_rna <- Seurat::CreateSeuratObject(
@@ -107,17 +111,17 @@ pbmc_rna <- Seurat::CreateSeuratObject(
 
 #### Alternatively create a Seurat object from both matrices.
 ```{r eval=FALSE}
-# pbmc_multi <- Seurat::CreateSeuratObject(
-#     counts = pbmc_data,
-#     assay = "Multi",
-#     project = "pbmc",
-#     min.cells = 3, # minimal amount of cells expressing a feature
-#     min.features = 200 # minimal amount of features detected per cell
-#   )
-# utils::str(pbmc_multi)
+pbmc_multi <- Seurat::CreateSeuratObject(
+    counts = pbmc_data,
+    assay = "Multi",
+    project = "pbmc",
+    min.cells = 3, # minimal amount of cells expressing a feature
+    min.features = 200 # minimal amount of features detected per cell
+  )
+utils::str(pbmc_multi)
 ```
 
-## [1.4.] Inspect the Seurat object
+### [1.4.] Inspect the Seurat object
 #### Filtering in [1.3.] reduced the number of rows and columns.
 #### Dimensions: 26315 x 10987, Sparsity: 94.39873
 ```{r eval=FALSE}
@@ -127,11 +131,11 @@ pbmc_rna@assays$RNA@layers$counts[1:5,1:5]
 100 - (base::length(pbmc_rna@assays$RNA@layers$counts@x) / base::prod(pbmc_rna@assays$RNA@layers$counts@Dim))*100 # Sparsity
 ```
 
-## [1.5.] Detect & count mitochondrial gene contribution
+### [1.5.] Detect & count mitochondrial gene contribution
 #### On terminal:  gunzip -c features.tsv.gz | cut -f2 | grep '^MT-' | head
 ```{r}
-## base::dimnames(pbmc_rna@assays$RNA@features@.Data)[[1]]
-## base::colnames(pbmc_rna)
+# base::dimnames(pbmc_rna@assays$RNA@features@.Data)[[1]]
+# base::colnames(pbmc_rna)
 feat_names <- base::rownames(pbmc_rna) 
 feat_names[base::grep("^MT-",feat_names)]
   
@@ -141,7 +145,7 @@ pbmc_rna[["percent.mt"]] <- Seurat::PercentageFeatureSet(
   )
 ```
 
-## [1.6.] Inspect & visualize features, including mitochondrial gene contribution
+### [1.6.] Inspect & visualize features, including mitochondrial gene contribution
 ```{r}
 # pbmc_rna@meta.data # Inspect new variable
 # base::colnames(pbmc_rna[[]])
@@ -177,7 +181,7 @@ Seurat::FeatureScatter(
     )
 ```
 
-## [1.7.] Filter cells
+### [1.7.] Filter cells
 #### Based on inspection in [1.6.].
 #### Removes empty droplets, droplets with ≥ 2 cells, apoptotic cells or cells with insufficiently captured transcripts.
 #### Dimensions: 26315 x 7573, Sparsity: 94.87731
@@ -190,9 +194,11 @@ pbmc_rna <- base::subset(
 # 100 - (base::length(pbmc_rna@assays$RNA@layers$counts@x) / base::prod(pbmc_rna@assays$RNA@layers$counts@Dim))*100 # Sparsity
 ```
 
-# [2.] Process data - Normalize, scale, reduce dimensions
+---
 
-## [2.0.] Normalization
+## [2.] Process data - Normalize, scale, reduce dimensions
+
+### [2.0.] Normalization
 ```{r}
 pbmc_rna <- Seurat::NormalizeData(
     object = pbmc_rna,
@@ -202,7 +208,7 @@ pbmc_rna <- Seurat::NormalizeData(
   )
 ```
 
-## [2.1.] Inspect normalized data
+### [2.1.] Inspect normalized data
 ```{r eval=FALSE}
 utils::str(pbmc_rna)
 pbmc_rna@assays$RNA@layers$data
@@ -216,7 +222,7 @@ pbmc_rna[["RNA"]]$data
 
 ---
 
-## [2.2.] Find most highly variably expressed genes
+### [2.2.] Find most highly variably expressed genes
 #### Identification of features (genes) with highest variability across all cells to apply variance-stabilizing data transformation.
 ```{r}
 pbmc_rna <- Seurat::FindVariableFeatures(
@@ -227,7 +233,7 @@ pbmc_rna <- Seurat::FindVariableFeatures(
   )
 ```
 
-## [2.3.] Inspect variable genes
+### [2.3.] Inspect variable genes
 ```{r}
 # utils::str(pbmc_rna)
 # pbmc_rna@assays$RNA@meta.data
@@ -250,7 +256,7 @@ Seurat::LabelPoints(
     )
 ```
 
-## [2.4.] Scale across dataset
+### [2.4.] Scale across dataset
 #### Linear transformation for each feature (gene) across the variable genes to prepare principal component analysis (PCA).
 #### Scale across all genes as default is to perform scaling only on the variable features.
 ```{r}
@@ -262,14 +268,14 @@ pbmc_rna <- Seurat::ScaleData(
 ```
 
 #### Alternative is to use scaling for removal of potential sources of variation, e.g., mitochondrial reads or cell cycle phase.
-```{r}
-# pbmc_rna <- Seurat::ScaleData(
-#     object = pbmc_rna,
-#     vars.to.regress = "percent.mt"
-#   )
+```{r eval=FALSE}
+pbmc_rna <- Seurat::ScaleData(
+    object = pbmc_rna,
+    vars.to.regress = "percent.mt"
+  )
 ```
 
-## [2.5.] Run principal component analysis
+### [2.5.] Run principal component analysis
 #### RunPCA when called on a Seurat objects operates on the scale.data slot of the assay by default.
 #### Seurat:::PrepDR5() function prepares internally the data to be used for PCA.
 ```{r}
@@ -288,7 +294,7 @@ pbmc_rna <- Seurat::RunPCA(
   )
 ```
 
-## [2.6.] Inspect PCA results
+### [2.6.] Inspect PCA results
 ```{r}
 # utils::str(pbmc_rna)
 # pbmc_rna[["pca"]]
@@ -318,7 +324,7 @@ Seurat::DimPlot(
     )
 ```
 
-## [2.7.] Inspect dimensionality of the data
+### [2.7.] Inspect dimensionality of the data
 ```{r}
 Seurat::DimHeatmap(
     object = pbmc_rna,
@@ -344,7 +350,7 @@ Seurat::ElbowPlot(
     )
 ```
 
-## [2.8.] Resampling method using JackStraw.
+### [2.8.] Resampling method using JackStraw.
 #### Not used or recommended as it is a time-consuming approach.
 ```{r eval = FALSE}
 pbmc_rna_ <- Seurat::JackStraw(
@@ -363,11 +369,13 @@ Seurat::JackStrawPlot(
   )
 ```
 
-# [3.] Cell clustering
+---
+
+## [3.] Cell clustering
 #### Seurat performs clustering based on PCA scores of features (genes) in cells.
 #### Choice of included PCAs based on resampling test and Elbow plots.
 
-## [3.0.] Calculate nearest neighbors and corresponding graph
+### [3.0.] Calculate nearest neighbors and corresponding graph
 #### k-NN graph calculation based on cell distances in PCA latent space.
 #### Refinement of graph edges based on similarity between neighborhoods.
 #### Uses RcppAnnoy::AnnoyEuclidean and RANN::nn2 (NNHelper) for calculating.
@@ -385,13 +393,13 @@ pbmc_rna <- Seurat::FindNeighbors(
   )
 ```
 
-## [3.1.] Inspect graph
+### [3.1.] Inspect graph
 ```{r eval=FALSE}
 utils::str(pbmc_rna)
 pbmc_rna@graphs
 ```
 
-## [3.2.] Find clusters
+### [3.2.] Find clusters
 #### Louvain or SLM algorithms to iteratively form groups of cells.
 #### Granularity of result adjusting the amount of identified clusters.
 ```{r}
@@ -403,7 +411,7 @@ pbmc_rna <- Seurat::FindClusters(
   )
 ```
 
-## [3.3.] Perform non-linear dimension reduction
+### [3.3.] Perform non-linear dimension reduction
 ```{r warning=FALSE}
 pbmc_rna <- Seurat::RunUMAP(
     object = pbmc_rna,
@@ -414,7 +422,7 @@ pbmc_rna <- Seurat::RunUMAP(
   )
 ```
 
-## [3.4.] Visualize UMAP dimension reduction
+### [3.4.] Visualize UMAP dimension reduction
 #### UMAP preserves the local distances in favor of global relationships.
 ```{r}
 Seurat::DimPlot(
@@ -427,7 +435,7 @@ Seurat::DimPlot(
   )
 ```
 
-## [3.5.] Calculate cluster dendogram
+### [3.5.] Calculate cluster dendogram
 ```{r}
 pbmc_rna_ <- pbmc_rna
 pbmc_rna_ <- Seurat::BuildClusterTree(
@@ -450,7 +458,7 @@ ape::plot.phylo(x = data.tree, direction = "downwards")
 ape::nodelabels()
 ```
 
-## [3.6.] Evaluate cluster number as a function of cluster granularity / resolution
+### [3.6.] Evaluate cluster number as a function of cluster granularity / resolution
 #### Incompatibilities between ggplot2 & clustree likely renders this chunk unfunctional.
 ```{r eval=FALSE}
 pbmc_rna_ <- pbmc_rna
@@ -469,9 +477,11 @@ clustree::clustree(
   )
 ```
 
-# [6.] Save & load data
+---
 
-## [6.0.] Save Seurat Object pbmc_rna & the "nFeature_RNA"-cleaned version pbmc_qc
+## [6.] Save & load data
+
+### [6.0.] Save Seurat Object pbmc_rna
 ```{r eval=FALSE}
 base::saveRDS(
     object = pbmc_rna,
