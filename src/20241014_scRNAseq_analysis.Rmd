@@ -621,6 +621,7 @@ checkmate::assert_matrix(x, any.missing = FALSE, col.names = "unique",
 ## [4.0.] Subsample number of cells in initial scRNAseq features x cells matrix
 #### 100,000 instead of 733,612 input cells
 ```{r}
+base::set.seed(1)
 sub = 1e+5
 cols <- base::sample(
     x = 1:base::ncol(pbmc_data$`Gene Expression`),
@@ -630,9 +631,10 @@ cols <- base::sample(
 pbmc_alt_data <- pbmc_data$`Gene Expression`[,cols]
 ```
 
-## [4.1.] Run analysis with subsampled data
+## [4.1.] Run analysis with subsampled cells
 #### No parameters changed comapred to [1.3.] - [3.4.]
 ```{r}
+base::set.seed(1)
 pbmc_alt <- Seurat::CreateSeuratObject(
     counts = pbmc_alt_data,
     assay = "RNA",
@@ -698,12 +700,119 @@ Seurat::DimPlot(
     ) +
   theme_bw() +
   theme(
+      aspect.ratio = 1
+    )
+base::remove(pbmc_alt,pbmc_alt_data)
+```
+
+## [4.2.] Subsample reads in gene expression matrix
+#### From 38.067.789 to 10.000.000
+```{r}
+base::set.seed(1)
+fin = 1e+7
+mat <- pbmc_data$`Gene Expression`
+cur <- base::sum(mat@x)
+rmv <- cur - fin
+smp <- base::sample(
+    x = base::sum(mat@x),
+    size = rmv,
+    replace = FALSE
+  )
+pos <- base::cumsum(mat@x)
+t <- base::table(
+    base::findInterval(
+      x = smp,
+      vec = pos,
+      rightmost.closed = FALSE,
+      left.open = TRUE
+    ) + 1
+  )
+r <- base::as.numeric(t)
+base::names(r) <- base::names(t)
+t <- r
+n <- t[base::match(base::as.character(1:base::length(mat@x)), base::names(t))]
+n[base::is.na(n)] <- 0
+mat@x <- mat@x - n # remove sampled reads
+pbmc_alt_data <- Matrix::drop0(mat) # drop new 0s
+base::sum(pbmc_alt_data@x)
+base::remove(r,t,mat,cur,rmv,smp,pos,n)
+```
+
+## [4.3.] Run analysis with subsampled reads
+#### No parameters changed comapred to [1.3.] - [3.4.]
+```{r}
+pbmc_alt <- Seurat::CreateSeuratObject(
+    counts = pbmc_alt_data,
+    assay = "RNA",
+    project = "reads10mio",
+    min.cells = 3,
+    min.features = 200
+  )
+pbmc_alt[["percent.mt"]] <- Seurat::PercentageFeatureSet(
+    object = pbmc_alt,
+    pattern = "^MT-"
+  )
+pbmc_alt <- base::subset(
+    x = pbmc_alt,
+    subset = nFeature_RNA > 200 & nFeature_RNA < 2500 & percent.mt < 10
+  )
+pbmc_alt <- Seurat::NormalizeData(
+    object = pbmc_alt,
+    normalization.method = "LogNormalize",
+    scale.factor = 1e+4,
+    verbose = FALSE
+  )
+pbmc_alt <- Seurat::FindVariableFeatures(
+    object = pbmc_alt,
+    selection.method = "vst",
+    nfeatures = 2000L,
+    verbose = FALSE
+  )
+pbmc_alt <- Seurat::ScaleData(
+    object = pbmc_alt,
+    features = base::rownames(pbmc_alt),
+    verbose = FALSE
+  )
+pbmc_alt <- Seurat::RunPCA(
+    object = pbmc_alt,
+    features = Seurat::VariableFeatures(object = pbmc_alt),
+    npcs = 50L,
+    verbose = FALSE,
+    seed.use = 1L,
+    assay = "RNA", #default at this stage
+    layer = 'scale.data' # default
+  )
+pbmc_alt <- Seurat::FindNeighbors(
+    object = pbmc_alt,
+    dims = 1:10,
+    k.param = 20, # default
+    verbose = FALSE,
+    l2.norm = FALSE
+  )
+pbmc_alt <- Seurat::FindClusters(
+    object = pbmc_alt,
+    resolution = 0.5,
+    verbose = FALSE
+  )
+pbmc_alt <- Seurat::RunUMAP(
+    object = pbmc_alt,
+    umap.method = "uwot",
+    dims = 1:10,
+    verbose = FALSE
+  )
+Seurat::DimPlot(
+      object = pbmc_alt,
+      reduction = "umap"
+    ) +
+  theme_bw() +
+  theme(
     aspect.ratio = 1
   )
 # base::remove(pbmc_alt,pbmc_alt_data)
 ```
+```
 
-## [4.3.] Read out metainfo & UMAP data
+## [4.4.] Read out metainfo & UMAP data
 ```{r}
 assertthat::are_equal(
     x = base::rownames(pbmc_rna@meta.data),
@@ -722,7 +831,7 @@ meta_comb <- dplyr::left_join(
   )
 ```
 
-## [4.4.] Average mean cluster positions for cluster labels
+## [4.5.] Average mean cluster positions for cluster labels
 ```{r}
 cls <- meta_comb %>%
   dplyr::group_by(seurat_clusters) %>%
@@ -733,7 +842,7 @@ cls <- meta_comb %>%
     )
 ```
 
-## [4.5.] Map quality metrics onto UMAP
+## [4.6.] Map quality metrics onto UMAP
 ```{r}
 coef = 0.5
 cols <- base::c(
@@ -794,7 +903,7 @@ ggplot2::ggplot(
     )
 ```
 
-## [4.6.] Cluster-specific quality metrics
+## [4.7.] Cluster-specific quality metrics
 ```{r}
 ggplot2::ggplot(
       data = meta_comb,
@@ -822,7 +931,7 @@ ggplot2::ggplot(
     )
 ```
 
-## [4.7.] Run analysis without removing mitoochondrial contaminations
+## [4.8.] Run analysis without removing mitoochondrial contaminations
 #### No parameters changed comapred to [1.3.] - [3.4.]
 #### Elbow plot looks very similar to pbmc_rna
 ```{r}
@@ -896,7 +1005,7 @@ Seurat::DimPlot(
     )
 ```
 
-## [4.8.] Map mitochondrial contribution to UMAP
+## [4.9.] Map e.g., mitochondrial contribution to UMAP
 ```{r}
 meta_qc <- pbmc_qc@meta.data %>%
   tibble::as_tibble(rownames = "cell")
@@ -963,7 +1072,7 @@ ggplot2::ggplot(
     )
 ```
 
-## [4.9.] Mean mitochondrial contribution per cluster
+## [4.10.] Mean mitochondrial contribution per cluster
 #### Cluster 7 & 8 might potentially be doublet clusters
 ```{r}
 ggplot2::ggplot(
@@ -987,6 +1096,9 @@ ggplot2::ggplot(
     aspect.ratio = 2
   )
 ```
+
+## Question: Do cluster 7 & 8 consist of doublets or are these biologically meaningful cell types?
+## (e.g., annotations, doublet detection)
 
 # [5.] Marker genes -------------------------
 
@@ -1029,38 +1141,82 @@ pbmc_markers %>%
     )
 ```
 
-
+## [5.2.] Read out gene expression values from Seurat object
 #### Default plotting via 'Seurat::FeaturePlot(pbmc_qc, features = "CD8A")'
 #### Access to genes via 'SeuratObject::Features(x = pbmc_qc,layer = "data")'
 ```{r}
+gene <- "CD8A"
+
 Seurat::FetchData(
     object = pbmc_qc,
-    vars = base::c("CD8A","umap_1","umap_2"),
+    vars = base::c(gene,"umap_1","umap_2"),
     cells = base::colnames(x = pbmc_qc),
     assay = "RNA",
     layer = "data"
   )
 
-m <- pbmc_qc@assays$RNA@layers$data
-base::colnames()
-
-  
 tibble::enframe(
   SeuratObject::LayerData(
       object = pbmc_qc,
       layer = "data",
       cells = base::colnames(x = pbmc_qc),
       features = base::rownames(x = pbmc_qc)
-    )["CD8A",]
+    )[gene,]
   )
-
-
-
-Key(object = object)
 ```
 
+#### Direct access
+```{r}
+m <- pbmc_qc@assays$RNA@layers$data
+base::colnames(m) <- base::colnames(pbmc_qc)
+base::rownames(m) <- base::rownames(pbmc_qc)
+ge <- m[gene,]
+ge_qc <- tibble::enframe(
+    x = ge, name = "cell", value = gene
+  )
+umap_qc <- pbmc_qc@reductions$umap@cell.embeddings %>%
+  tibble::as_tibble(rownames = "cell")
+ge_comb <- dplyr::left_join(
+    x = umap_qc, y = ge_qc, by = "cell"
+  )
+```
 
-## [5.2.] Read in reference data
+## [5.3.] Plot gene expression values onto the UMAP projection
+```{r}
+coef = 0.5
+cols <- base::c(
+    grDevices::colorRampPalette(
+        base::c("#e7f0fa", "#c9e2f6", "#95cbee", "#0099dc", "#4ab04a", "#ffd73e")
+      )(coef*100),
+    grDevices::colorRampPalette(
+      base::c("#eec73a", "#e29421", "#e29421", "#f05336","#ce472e"),
+      bias=2
+    )((1-coef)*100)
+  )
+
+ggplot2::ggplot(
+      data = ge_comb,
+      mapping = aes(
+        x = umap_1,
+        y = umap_2,
+        color = CD8A
+      )
+    ) +
+  geom_point(
+      size = 0.1
+    ) +
+  scale_colour_gradientn(
+      colours = cols
+    ) +
+  theme_bw() +
+  theme(
+      aspect.ratio = 1,
+      axis.text = element_blank(),
+      axis.ticks = element_blank()
+    )
+```
+
+## [5.4.] Read in reference data
 ```{r}
 ref <- base::readRDS(
     file = base::paste0(
@@ -1071,7 +1227,7 @@ ref <- base::readRDS(
 ref <- Seurat::UpdateSeuratObject(object = ref)
 ```
 
-## [5.3.] Inspect reference dataset
+## [5.5.] Inspect reference dataset
 ```{r}
 utils::str(ref)
 ref@meta.data
@@ -1085,7 +1241,7 @@ Seurat::DimPlot(
     )
 ```
 
-## [5.4.] Transfer annotations via identified anchors
+## [5.6.] Transfer annotations via identified anchors
 ```{r}
 pbmc_anchors <- Seurat::FindTransferAnchors(
     reference = ref,
@@ -1106,7 +1262,7 @@ pbmc_qc <- Seurat::AddMetaData(
   )
 ```
 
-## [5.5.] Inspect & plot data
+## [5.7.] Inspect & plot data
 ```{r}
 pbmc_qc@meta.data
 Seurat::DimPlot(
@@ -1120,7 +1276,7 @@ Seurat::DimPlot(
     )
 ```
 
-## [5.6.] Label predicted IDs onto the UMAP dimension reduction
+## [5.8.] Label predicted IDs onto the UMAP dimension reduction
 ```{r}
 pal <- base::c(
     "#3255A4", "#A4DBE8", "#8C8279",
@@ -1182,32 +1338,54 @@ ggplot2::ggplot(
     )
 ```
 
-# [6.] Save data -------------------------
+# [6.] Save & load data -------------------------
 
 ## [6.0.] Save Seurat Object pbmc_rna & the "nFeature_RNA"-cleaned version pbmc_qc
 ```{r}
-base::saveRDS(
-    object = pbmc_rna,
-    file = base::paste0(
-        here::here("output_data/"),
-        base::format(base::Sys.time(),"%Y%m%d"),
-        "_pbmc_RNA",
-        ".rds"
-      ),
-    compress = TRUE
-  )
+# base::saveRDS(
+#     object = pbmc_rna,
+#     file = base::paste0(
+#         here::here("output_data/"),
+#         base::format(base::Sys.time(),"%Y%m%d"),
+#         "_pbmc_RNA",
+#         ".rds"
+#       ),
+#     compress = TRUE
+#   )
+```
+
+```{r}
+pbmc_rna <- base::list.files(
+      path = here::here("output_data"),
+      full.names = TRUE
+    ) %>%
+  stringr::str_subset("RNA.rds") %>%
+  base::readRDS(
+      file = .
+    )
 ```
 
 #### Older version without annotations 20241015_pbmc_RNA_qc.rds
 ```{r}
-base::saveRDS(
-    object = pbmc_qc,
-    file = base::paste0(
-        here::here("output_data/"),
-        base::format(base::Sys.time(),"%Y%m%d"),
-        "_pbmc_RNA_qc_annotated",
-        ".rds"
-      ),
-    compress = TRUE
-  )
+# base::saveRDS(
+#     object = pbmc_qc,
+#     file = base::paste0(
+#         here::here("output_data/"),
+#         base::format(base::Sys.time(),"%Y%m%d"),
+#         "_pbmc_RNA_qc_annotated",
+#         ".rds"
+#       ),
+#     compress = TRUE
+#   )
+```
+
+```{r}
+pbmc_qc <- base::list.files(
+      path = here::here("output_data"),
+      full.names = TRUE
+    ) %>%
+  stringr::str_subset("RNA_qc.rds") %>%
+  base::readRDS(
+      file = .
+    )
 ```
