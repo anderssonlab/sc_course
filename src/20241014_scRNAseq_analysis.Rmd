@@ -706,10 +706,10 @@ base::remove(pbmc_alt,pbmc_alt_data)
 ```
 
 ## [4.2.] Subsample reads in gene expression matrix
-#### From 38.067.789 to 10.000.000
+#### From 38.067.789 to 10.000.000 or 5.000.000
 ```{r}
 base::set.seed(1)
-fin = 1e+7
+fin = 5e6 # 1e+7
 mat <- pbmc_data$`Gene Expression`
 cur <- base::sum(mat@x)
 rmv <- cur - fin
@@ -741,6 +741,7 @@ base::remove(r,t,mat,cur,rmv,smp,pos,n)
 ## [4.3.] Run analysis with subsampled reads
 #### No parameters changed comapred to [1.3.] - [3.4.]
 ```{r}
+base::set.seed(1)
 pbmc_alt <- Seurat::CreateSeuratObject(
     counts = pbmc_alt_data,
     assay = "RNA",
@@ -809,7 +810,6 @@ Seurat::DimPlot(
     aspect.ratio = 1
   )
 # base::remove(pbmc_alt,pbmc_alt_data)
-```
 ```
 
 ## [4.4.] Read out metainfo & UMAP data
@@ -931,70 +931,69 @@ ggplot2::ggplot(
     )
 ```
 
-## [4.8.] Run analysis without removing mitoochondrial contaminations
+## [4.8.] Rerun analysis by changing QC cut-offs
 #### No parameters changed comapred to [1.3.] - [3.4.]
 #### Elbow plot looks very similar to pbmc_rna
 ```{r}
-base::set.seed(1)
-pbmc_qc <- Seurat::CreateSeuratObject(
-    counts = pbmc_data$`Gene Expression`,
-    assay = "RNA",
-    project = "pbmc10k",
-    min.cells = 3,
-    min.features = 200
-  )
-pbmc_qc[["percent.mt"]] <- Seurat::PercentageFeatureSet(
-    object = pbmc_qc,
-    pattern = "^MT-"
-  )
-pbmc_qc <- base::subset(
-    x = pbmc_qc,
-    subset = nFeature_RNA > 750 & nFeature_RNA < 2500 & percent.mt < 10
-  )
-pbmc_qc <- Seurat::NormalizeData(
-    object = pbmc_qc,
-    normalization.method = "LogNormalize",
-    scale.factor = 1e+4,
-    verbose = FALSE
-  )
-pbmc_qc <- Seurat::FindVariableFeatures(
-    object = pbmc_qc,
-    selection.method = "vst",
-    nfeatures = 2000L,
-    verbose = FALSE
-  )
-pbmc_qc <- Seurat::ScaleData(
-    object = pbmc_qc,
-    features = base::rownames(pbmc_alt),
-    verbose = FALSE
-  )
-pbmc_qc <- Seurat::RunPCA(
-    object = pbmc_qc,
-    features = Seurat::VariableFeatures(object = pbmc_qc),
-    npcs = 50L,
-    verbose = FALSE,
-    seed.use = 1L,
-    assay = "RNA", #default at this stage
-    layer = 'scale.data' # default
-  )
-pbmc_qc <- Seurat::FindNeighbors(
-    object = pbmc_qc,
-    dims = 1:10,
-    k.param = 20, # default
-    verbose = FALSE,
-    l2.norm = FALSE
-  )
-pbmc_qc <- Seurat::FindClusters(
-    object = pbmc_qc,
-    resolution = 0.3,
-    verbose = FALSE
-  )
-pbmc_qc <- Seurat::RunUMAP(
-    object = pbmc_qc,
-    umap.method = "uwot",
-    dims = 1:10,
-    verbose = FALSE
-  )
+# pbmc_qc <- Seurat::CreateSeuratObject(
+#     counts = pbmc_data$`Gene Expression`,
+#     assay = "RNA",
+#     project = "pbmc10k",
+#     min.cells = 3,
+#     min.features = 200
+#   )
+# pbmc_qc[["percent.mt"]] <- Seurat::PercentageFeatureSet(
+#     object = pbmc_qc,
+#     pattern = "^MT-"
+#   )
+# pbmc_qc <- base::subset(
+#     x = pbmc_qc,
+#     subset = nFeature_RNA > 750 & nFeature_RNA < 2500 & percent.mt < 10
+#   )
+# pbmc_qc <- Seurat::NormalizeData(
+#     object = pbmc_qc,
+#     normalization.method = "LogNormalize",
+#     scale.factor = 1e+4,
+#     verbose = FALSE
+#   )
+# pbmc_qc <- Seurat::FindVariableFeatures(
+#     object = pbmc_qc,
+#     selection.method = "vst",
+#     nfeatures = 2000L,
+#     verbose = FALSE
+#   )
+# pbmc_qc <- Seurat::ScaleData(
+#     object = pbmc_qc,
+#     features = base::rownames(pbmc_alt),
+#     verbose = FALSE
+#   )
+# pbmc_qc <- Seurat::RunPCA(
+#     object = pbmc_qc,
+#     features = Seurat::VariableFeatures(object = pbmc_qc),
+#     npcs = 50L,
+#     verbose = FALSE,
+#     seed.use = 1L,
+#     assay = "RNA", #default at this stage
+#     layer = 'scale.data' # default
+#   )
+# pbmc_qc <- Seurat::FindNeighbors(
+#     object = pbmc_qc,
+#     dims = 1:10,
+#     k.param = 20, # default
+#     verbose = FALSE,
+#     l2.norm = FALSE
+#   )
+# pbmc_qc <- Seurat::FindClusters(
+#     object = pbmc_qc,
+#     resolution = 0.3,
+#     verbose = FALSE
+#   )
+# pbmc_qc <- Seurat::RunUMAP(
+#     object = pbmc_qc,
+#     umap.method = "uwot",
+#     dims = 1:10,
+#     verbose = FALSE
+#   )
 Seurat::DimPlot(
       object = pbmc_qc,
       reduction = "umap"
@@ -1011,12 +1010,12 @@ meta_qc <- pbmc_qc@meta.data %>%
   tibble::as_tibble(rownames = "cell")
 umap_qc <- pbmc_qc@reductions$umap@cell.embeddings %>%
   tibble::as_tibble(rownames = "cell")
-
 meta_qc_comb <- dplyr::left_join(
     x = umap_qc,
     y = meta_qc,
     by = "cell"
   )
+
 cls <- meta_qc_comb %>%
   dplyr::group_by(seurat_clusters) %>%
   dplyr::summarise(
@@ -1024,6 +1023,7 @@ cls <- meta_qc_comb %>%
       pos_2 = base::mean(umap_2),
       .groups = "drop"
     )
+
 ggplot2::ggplot(
       data = meta_qc_comb,
       mapping = aes(
@@ -1217,7 +1217,7 @@ ggplot2::ggplot(
 ```
 
 ## [5.4.] Read in reference data
-```{r}
+```{r message=FALSE, warning=FALSE}
 ref <- base::readRDS(
     file = base::paste0(
       here::here("input_data/"),
@@ -1337,6 +1337,57 @@ ggplot2::ggplot(
       axis.ticks = element_blank()
     )
 ```
+
+## Question: Are platelets a real cluster or ambient RNA?
+
+```{r}
+meta_qc_comb %>%
+    dplyr::mutate(
+      plt = dplyr::case_when(
+          predicted.id == "Platelet" ~ "plt",
+          TRUE ~ "non_plt"
+        ),
+      plt = base::factor(
+        x = plt,
+        levels = base::c("plt","non_plt"),
+        ordered = TRUE
+      )
+    ) %>%
+  dplyr::arrange(plt)
+
+  ggplot2::ggplot(
+      data = meta_qc_comb,
+      mapping = aes(
+        x = umap_1,
+        y = umap_2,
+        color = predicted.id
+      )
+    ) +
+  geom_point(
+      size = 0.1
+    ) +
+  ggrepel::geom_label_repel(
+      inherit.aes = FALSE,
+      data = cls,
+      mapping = aes(
+          x = pos_1,
+          y = pos_2,
+          label = predicted.id
+        ),
+      box.padding = 1,
+      max.overlaps = Inf
+    ) +
+  scale_colour_manual(
+      values = pal
+    ) +
+  theme_bw() +
+  theme(
+      aspect.ratio = 1,
+      axis.text = element_blank(),
+      axis.ticks = element_blank()
+    )
+```
+
 
 # [6.] Save & load data -------------------------
 
