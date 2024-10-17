@@ -415,7 +415,7 @@ pbmc_rna_ <- Seurat::BuildClusterTree(
     slot = "scale.data",
     verbose = FALSE
   )
-utils::str(pbmc_rna_)
+# utils::str(pbmc_rna_)
 
 # replaces Seurat::PlotClusterTree
 data.tree <- SeuratObject::Tool(
@@ -426,9 +426,8 @@ ape::plot.phylo(x = data.tree, direction = "downwards")
 ape::nodelabels()
 ```
 
-##<<bookmark/under_construction>> -------------------------
-
 ## [3.6.] Evaluate cluster number as a function of cluster granularity / resolution
+#### Incompatibilities between ggplot2 & clustree likely renders this chunk unfunctional
 ```{r}
 pbmc_rna_ <- pbmc_rna
 for(r in base::seq(0.1,1.2,0.1)){
@@ -439,182 +438,12 @@ for(r in base::seq(0.1,1.2,0.1)){
     )
 }
 pbmc_rna_@meta.data
-base::debugonce(clustree::clustree)
+
 clustree::clustree(
-    x = pbmc_rna_,
-    prefix = "RNA_snn_res.",
-   return = "layout"
+    x = pbmc_rna_[[]],
+    prefix = "RNA_snn_res."
   )
 ```
-
-```{r}
-base::colnames(pbmc_rna_[[]])
-pbmc_rna@meta.data %>%
-  dplyr::
-
-function(x, prefix, suffix = NULL, metadata = NULL, count_filter = 0, 
-  prop_filter = 0.1, layout = c("tree", "sugiyama"), use_core_edges = TRUE, 
-  highlight_core = FALSE, node_colour = prefix, node_colour_aggr = NULL, 
-  node_size = "size", node_size_aggr = NULL, node_size_range = c(4, 
-    15), node_alpha = 1, node_alpha_aggr = NULL, node_text_size = 3, 
-  scale_node_text = FALSE, node_text_colour = "black", node_text_angle = 0, 
-  node_label = NULL, node_label_aggr = NULL, node_label_size = 3, 
-  node_label_nudge = -0.2, edge_width = 1.5, edge_arrow = TRUE, 
-  edge_arrow_ends = c("last", "first", "both"), show_axis = FALSE, 
-  return = c("plot", "graph", "layout"), ...)
-```
-
-```{r}
-checkmate::assert_matrix(x, any.missing = FALSE, col.names = "unique", 
-    min.cols = 2)
-  checkmate::assert_character(prefix, any.missing = FALSE, 
-    len = 1)
-  checkmate::assert_character(suffix, any.missing = FALSE, 
-    len = 1, null.ok = TRUE)
-  checkmate::assert_number(count_filter, lower = 0, upper = nrow(x))
-  checkmate::assert_number(prop_filter, lower = 0, upper = 1)
-  checkmate::assert_data_frame(metadata, nrows = nrow(x), 
-    col.names = "unique", null.ok = TRUE)
-  assert_colour_node_aes("node_colour", prefix, metadata, 
-    node_colour, node_colour_aggr)
-  assert_numeric_node_aes("node_size", prefix, metadata, node_size, 
-    node_size_aggr, 0, Inf)
-  assert_numeric_node_aes("node_alpha", prefix, metadata, 
-    node_alpha, node_alpha_aggr, 0, 1)
-  checkmate::assert_number(node_text_size, lower = 0)
-  if (!is.null(node_label)) {
-    assert_node_aes("node_label", prefix, metadata, node_label, 
-      node_label_aggr)
-  }
-  checkmate::assert_number(node_label_nudge)
-  checkmate::assert_logical(scale_node_text, any.missing = FALSE, 
-    len = 1)
-  checkmate::assert_number(edge_width, lower = 0)
-  checkmate::assert_logical(edge_arrow, any.missing = FALSE, 
-    len = 1)
-  layout <- match.arg(layout)
-  checkmate::assert_flag(use_core_edges)
-  return <- match.arg(return)
-  edge_arrow_ends <- match.arg(edge_arrow_ends)
-  checkmate::assert_flag(highlight_core)
-  if (!is.null(suffix)) {
-    colnames(x) <- gsub(suffix, "", colnames(x))
-  }
-  res_clean <- gsub(prefix, "", colnames(x))
-  is_num <- suppressWarnings(!any(is.na(as.numeric(res_clean))))
-  if (!is_num) {
-    stop("The X portion of your clustering column names could not be ", 
-      "converted to a number. Please check that your prefix and suffix ", 
-      "are correct: prefix = '", prefix, "', suffix = '", 
-      suffix, "'", call. = FALSE)
-  }
-  res_order <- order(as.numeric(res_clean))
-  x <- x[, res_order]
-  res_clean <- res_clean[res_order]
-  if (!(is.null(metadata))) {
-    metadata_names <- make.names(colnames(metadata))
-    metadata_diff <- metadata_names != colnames(metadata)
-    if (any(metadata_diff)) {
-      warning("The following metadata column names will be converted from:\n", 
-        paste(colnames(metadata)[metadata_diff], collapse = ", "), 
-        "\n", "to:\n", paste(metadata_names[metadata_diff], 
-          collapse = ", "), call. = FALSE)
-      colnames(metadata) <- metadata_names
-    }
-  }
-  node_aes_list <- list(colour = list(value = node_colour, 
-    aggr = node_colour_aggr), size = list(value = node_size, 
-    aggr = node_size_aggr), alpha = list(value = node_alpha, 
-    aggr = node_alpha_aggr))
-  if (!is.null(node_label)) {
-    node_aes_list$label <- list(value = node_label, aggr = node_label_aggr)
-  }
-  node_aes_list <- check_node_aes_list(node_aes_list)
-  graph <- build_tree_graph(x, prefix, count_filter, prop_filter, 
-    metadata, node_aes_list)
-  graph_attr <- igraph::graph_attr(graph)
-  graph <- graph %>% tidygraph::activate("edges") %>% tidygraph::mutate(width = edge_width) %>% 
-    tidygraph::group_by(.data$to) %>% tidygraph::mutate(is_core = .data$in_prop == 
-    max(.data$in_prop)) %>% tidygraph::ungroup()
-  if (use_core_edges) {
-    layout <- graph %>% tidygraph::activate("edges") %>% 
-      tidygraph::filter(.data$is_core) %>% ggraph::create_layout(layout)
-    attributes(layout)$graph <- graph
-  }
-  else {
-    layout <- ggraph::create_layout(graph, layout)
-  }
-  gg <- ggraph(layout)
-  if (edge_arrow) {
-    if (is.numeric(node_size)) {
-      circle_size_end <- ifelse(edge_arrow_ends == "first", 
-        0.1, node_size * 1.5)
-      circle_size_start <- ifelse(edge_arrow_ends == "last", 
-        0.1, node_size * 1.5)
-    }
-    else {
-      circle_size_end <- ifelse(edge_arrow_ends == "first", 
-        0.1, mean(node_size_range) * 1.5)
-      circle_size_start <- ifelse(edge_arrow_ends == "last", 
-        0.1, mean(node_size_range) * 1.5)
-    }
-    gg <- gg + geom_edge_link(arrow = arrow(length = unit(edge_width * 
-      5, "points"), ends = edge_arrow_ends), end_cap = circle(circle_size_end, 
-      "points"), start_cap = circle(circle_size_start, 
-      "points"), aes(colour = .data$count, alpha = .data$in_prop, 
-      edge_width = .data$is_core))
-  }
-  else {
-    gg <- gg + geom_edge_link(aes(colour = .data$count, 
-      alpha = .data$in_prop, edge_width = .data$is_core))
-  }
-  if (highlight_core) {
-    core_width <- edge_width * 2
-    gg <- gg + scale_edge_width_manual(values = c(edge_width, 
-      core_width))
-  }
-  else {
-    gg <- gg + scale_edge_width_manual(values = c(edge_width, 
-      edge_width), guide = "none")
-  }
-  gg <- gg + scale_edge_colour_gradientn(colours = viridis::viridis(256)) + 
-    scale_edge_alpha(limits = c(0, 1))
-  gg <- gg + add_node_points(graph_attr$node_colour, graph_attr$node_size, 
-    graph_attr$node_alpha, names(igraph::vertex_attr(graph)))
-  if (scale_node_text && !is.numeric(node_size)) {
-    gg <- gg + geom_node_text(aes(label = .data$cluster, 
-      size = .data[[graph_attr$node_size]]), colour = node_text_colour, 
-      angle = node_text_angle)
-  }
-  else {
-    gg <- gg + geom_node_text(aes(label = .data$cluster), 
-      size = node_text_size, colour = node_text_colour, 
-      angle = node_text_angle)
-  }
-  if (!(is.null(node_label))) {
-    gg <- gg + add_node_labels(graph_attr$node_label, graph_attr$node_colour, 
-      node_label_size, node_text_colour, node_label_nudge, 
-      names(igraph::vertex_attr(graph)))
-  }
-  gg <- gg + scale_size(range = node_size_range) + ggraph::theme_graph(base_family = "", 
-    plot_margin = ggplot2::margin(2, 2, 2, 2))
-  if (show_axis) {
-    gg <- gg + ylab(prefix) + scale_y_continuous(breaks = sort(unique(layout$y)), 
-      labels = rev(res_clean)) + theme(axis.text.y = element_text(), 
-      axis.title = element_text(), axis.title.x = element_blank(), 
-      panel.grid.major.y = element_line(colour = "grey92"))
-  }
-  if (return == "plot") {
-    return(gg)
-  }
-  else if (return == "graph") {
-    return(graph)
-  }
-  else if (return == "layout") {
-    return(layout)
-```
-
-##<<bookmark/under_construction>> -------------------------
 
 # [4.] Additional analysis & quality checks -------------------------
 
@@ -1072,7 +901,7 @@ ggplot2::ggplot(
     )
 ```
 
-## [4.10.] Mean mitochondrial contribution per cluster
+## [4.10.] Mean e.g., mitochondrial contribution per cluster
 #### Cluster 7 & 8 might potentially be doublet clusters
 ```{r}
 ggplot2::ggplot(
@@ -1342,52 +1171,84 @@ ggplot2::ggplot(
 
 ```{r}
 meta_qc_comb %>%
-    dplyr::mutate(
-      plt = dplyr::case_when(
-          predicted.id == "Platelet" ~ "plt",
-          TRUE ~ "non_plt"
-        ),
-      plt = base::factor(
-        x = plt,
-        levels = base::c("plt","non_plt"),
-        ordered = TRUE
-      )
-    ) %>%
-  dplyr::arrange(plt)
+  dplyr::filter(predicted.id == "Platelet")
+```
 
-  ggplot2::ggplot(
-      data = meta_qc_comb,
-      mapping = aes(
-        x = umap_1,
-        y = umap_2,
-        color = predicted.id
-      )
-    ) +
-  geom_point(
-      size = 0.1
-    ) +
-  ggrepel::geom_label_repel(
-      inherit.aes = FALSE,
-      data = cls,
-      mapping = aes(
-          x = pos_1,
-          y = pos_2,
-          label = predicted.id
-        ),
-      box.padding = 1,
-      max.overlaps = Inf
-    ) +
-  scale_colour_manual(
-      values = pal
+## [5.9.]
+```{r}
+dplyr::distinct(meta_qc_comb,predicted.id)
+Seurat::DEenrichRPlot(
+    object = pbmc_qc,
+    ident.1 = "CD8 effector",
+    ident.2 = "CD8 Naive",
+    balanced = TRUE,
+    logfc.threshold = 0.25,
+    assay = "RNA",
+    layer = "data",
+    test.use = "wilcox",
+    p.val.cutoff = 0.05,
+    cols = pal
+  )
+```
+
+## [5.10.] SCTransform
+#### NO QC filtering performed
+```{r}
+base::set.seed(1L)
+pbmc_sct <- Seurat::CreateSeuratObject(
+    counts = pbmc_data$`Gene Expression`,
+    assay = "RNA",
+    project = "pbmcSCT",
+    min.cells = 3,
+    min.features = 200
+  )
+pbmc_sct[["percent.mt"]] <- Seurat::PercentageFeatureSet(
+    object = pbmc_sct,
+    pattern = "^MT-"
+  )
+# Necessary package: BiocManager::install('glmGamPoi')
+pbmc_sct <- Seurat::SCTransform(
+    object = pbmc_sct,
+    verbose = FALSE,
+    # vars.to.regress = "percent.mt"
+  )
+utils::str(pbmc_sct)
+pbmc_sct <- Seurat::RunPCA(
+    object = pbmc_sct,
+    features = Seurat::VariableFeatures(object = pbmc_sct),
+    npcs = 50L,
+    verbose = FALSE,
+    seed.use = 1L,
+    assay = "SCT",
+    layer = 'scale.data' # default
+  )
+pbmc_sct <- Seurat::FindNeighbors(
+    object = pbmc_sct,
+    dims = 1:10,
+    k.param = 20, # default
+    verbose = FALSE,
+    l2.norm = FALSE
+  )
+pbmc_sct <- Seurat::FindClusters(
+    object = pbmc_sct,
+    resolution = 0.3,
+    verbose = FALSE
+  )
+pbmc_sct <- Seurat::RunUMAP(
+    object = pbmc_sct,
+    umap.method = "uwot",
+    dims = 1:10,
+    verbose = FALSE
+  )
+Seurat::DimPlot(
+      object = pbmc_sct,
+      reduction = "umap"
     ) +
   theme_bw() +
   theme(
-      aspect.ratio = 1,
-      axis.text = element_blank(),
-      axis.ticks = element_blank()
+      aspect.ratio = 1
     )
 ```
-
 
 # [6.] Save & load data -------------------------
 
