@@ -1,5 +1,5 @@
 ---
-title: "Day 2 Practical session: single-cell ATAC-seq and multiome analyses"
+title: "Single-cell ATAC-seq and multiome analyses"
 output:
   html_document: default
   pdf_document: default
@@ -36,7 +36,7 @@ metadata_path <- "/maps/projects/ralab/data/projects/sc_course/input_data/10k_PB
 
 seurat_obj_rna <- "/maps/projects/ralab/data/projects/sc_course/output_data/20241015_pbmc_RNA_qc_annotated.rds" # replace it with Robert's scRNA final seurat result
 
-seurat_obj_output <- "/maps/projects/ralab/data/projects/sc_course/output_data/20241015_pbmc_RNA_qc_annotated.rds" 
+seurat_obj_output <- "/maps/projects/ralab/data/projects/sc_course/output_data/pbmc.ATAC.rds" 
 ```
 
 
@@ -257,8 +257,8 @@ open_cd4naive <- rownames(da_peaks[da_peaks$avg_log2FC > 3, ])
 open_cd14mono <- rownames(da_peaks[da_peaks$avg_log2FC < -3, ])
 
 
-closest_genes_cd4naive <- ClosestFeature(pbmc, regions = open_cd4naive)
-closest_genes_cd14mono <- ClosestFeature(pbmc, regions = open_cd14mono)
+closest_genes_cd4naive <- ClosestFeature(pbmc_atac, regions = open_cd4naive)
+closest_genes_cd14mono <- ClosestFeature(pbmc_atac, regions = open_cd14mono)
 
 head(closest_genes_cd4naive)
 head(closest_genes_cd14mono)
