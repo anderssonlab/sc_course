@@ -12,7 +12,14 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## [0.] Prerequisites
 
-### [0.0.] Read in data
+### [0.0.] Load necessary packages
+```{r message=FALSE}
+base::library("Seurat")
+base::library("tidyverse")
+# base::library("enrichR") # needed in [5.9.]
+```
+
+### [0.1.] Read in data
 #### See [1.0.] - [1.1.] in '20241014_scRNAseq_analysis.Rmd'.
 ```{r}
 dir <- base::paste0(
@@ -36,12 +43,6 @@ pbmc_rna <- base::list.files(
   base::readRDS(
       file = .
     )
-```
-
-### [0.1.] Load necessary packages
-```{r message=FALSE}
-base::library("Seurat")
-base::library("tidyverse")
 ```
 
 ---
@@ -445,7 +446,7 @@ Seurat::DimPlot(
 ```
 
 ### [4.9.] Map e.g., mitochondrial contribution to UMAP
-```{r}
+```{r eval=FALSE}
 meta_qc <- pbmc_qc@meta.data %>%
   tibble::as_tibble(rownames = "cell")
 umap_qc <- pbmc_qc@reductions$umap@cell.embeddings %>%
@@ -513,7 +514,7 @@ ggplot2::ggplot(
 ```
 
 ### [4.10.] Mean e.g., mitochondrial contribution per cluster
-```{r}
+```{r eval=FALSE}
 ggplot2::ggplot(
       data = meta_qc_comb,
       mapping = aes(
@@ -546,8 +547,8 @@ ggplot2::ggplot(
 ## [5.] Marker genes
 
 ### [5.0.] Identify all differential expressions
-#### Check with 'base::range(pbmc_markers$avg_log2FC)' and 'base::range(pbmc_markers$p_val)'.
-```{r}
+#### Check with 'base::range(pbmc_markers\$avg_log2FC)' and 'base::range(pbmc_markers\$p_val)'.
+```{r eval=FALSE}
 pbmc_markers <- Seurat::FindAllMarkers(
     object = pbmc_qc,
     only.pos = TRUE,
@@ -563,7 +564,7 @@ pbmc_markers <- Seurat::FindAllMarkers(
 
 ### [5.1.] Inspect markers
 #### Matching of canonical cell type markers to identified unbiased marker genes.
-```{r}
+```{r eval=FALSE}
 pbmc_markers %>%
   dplyr::group_by(cluster) %>%
   dplyr::filter(
@@ -587,10 +588,10 @@ pbmc_markers %>%
 ### [5.2.] Read out gene expression values from Seurat object
 #### Default plotting via 'Seurat::FeaturePlot(pbmc_qc, features = "CD8A")'.
 #### Access to genes via 'SeuratObject::Features(x = pbmc_qc,layer = "data")'.
-```{r eval=FALSE}
+```{r}
 gene <- "CD8A"
 
-Seurat::FetchData(
+ge_comb <- Seurat::FetchData(
     object = pbmc_qc,
     vars = base::c(gene,"umap_1","umap_2"),
     cells = base::colnames(x = pbmc_qc),
@@ -598,18 +599,18 @@ Seurat::FetchData(
     layer = "data"
   )
 
-tibble::enframe(
-  SeuratObject::LayerData(
-      object = pbmc_qc,
-      layer = "data",
-      cells = base::colnames(x = pbmc_qc),
-      features = base::rownames(x = pbmc_qc)
-    )[gene,]
-  )
+# tibble::enframe(
+#   SeuratObject::LayerData(
+#       object = pbmc_qc,
+#       layer = "data",
+#       cells = base::colnames(x = pbmc_qc),
+#       features = base::rownames(x = pbmc_qc)
+#     )[gene,]
+#   )
 ```
 
-#### Use direct access to the S3 Seurat object data.
-```{r}
+#### Alternatively use direct access to the S3 Seurat object data.
+```{r eval=FALSE}
 gene <- "CD8A"
 m <- pbmc_qc@assays$RNA@layers$data
 base::colnames(m) <- base::colnames(pbmc_qc)
@@ -626,7 +627,7 @@ ge_comb <- dplyr::left_join(
 ```
 
 ### [5.3.] Plot gene expression values onto the UMAP projection
-```{r}
+```{r eval=FALSE}
 coef = 0.5
 cols <- base::c(
     grDevices::colorRampPalette(
@@ -673,8 +674,8 @@ ref <- Seurat::UpdateSeuratObject(object = ref)
 
 ### [5.5.] Inspect reference dataset
 ```{r}
-utils::str(ref)
-ref@meta.data
+# utils::str(ref)
+# ref@meta.data
 Seurat::DimPlot(
       object = ref,
       reduction = "umap"
@@ -708,7 +709,7 @@ pbmc_qc <- Seurat::AddMetaData(
 
 ### [5.7.] Inspect & plot data
 ```{r}
-pbmc_qc@meta.data
+# pbmc_qc@meta.data
 Seurat::DimPlot(
       object = pbmc_qc,
       reduction = "umap",
@@ -721,7 +722,7 @@ Seurat::DimPlot(
 ```
 
 ### [5.8.] Label predicted IDs onto the UMAP dimension reduction
-```{r}
+```{r eval=FALSE}
 pal <- base::c(
     "#3255A4", "#A4DBE8", "#8C8279",
     "#EA7600", "#F6BE00", "#28B463",
@@ -786,7 +787,7 @@ ggplot2::ggplot(
 
 #### Question: Are platelets a real cluster or ambient RNA?
 
-```{r}
+```{r eval=FALSE}
 meta_qc_comb %>%
   dplyr::filter(predicted.id == "Platelet")
 ```
@@ -794,17 +795,16 @@ meta_qc_comb %>%
 ---
 
 ### [5.9.] Plot significantly enriched pathways between two cell types
-```{r}
+```{r message=FALSE, warning=FALSE, eval=FALSE}
 dplyr::distinct(meta_qc_comb,predicted.id,seurat_clusters)
-base::library(enrichR)
 enrichR::listEnrichrSites()
 enrichR::setEnrichrSite("Enrichr")
 dbs <- enrichR::listEnrichrDbs()
 
 Seurat::DEenrichRPlot(
     object = pbmc_qc,
-    ident.1 = base::c(5),
-    ident.2 = base::c(1,7),
+    ident.1 = 5,
+    ident.2 = 4,
     balanced = TRUE,
     logfc.threshold = 0.25,
     assay = "RNA",
@@ -840,7 +840,7 @@ pbmc_sct <- Seurat::SCTransform(
     verbose = FALSE,
     # vars.to.regress = "percent.mt"
   )
-utils::str(pbmc_sct)
+# utils::str(pbmc_sct)
 pbmc_sct <- Seurat::RunPCA(
     object = pbmc_sct,
     features = Seurat::VariableFeatures(object = pbmc_sct),
@@ -888,7 +888,7 @@ Seurat::DimPlot(
 ## [6.] Save & load data
 
 ### [6.1.] Save the "nFeature_RNA"-cleaned and annotated version pbmc_qc
-```{r eval=FASLE}
+```{r eval=FALSE}
 base::saveRDS(
     object = pbmc_qc,
     file = base::paste0(
@@ -901,7 +901,7 @@ base::saveRDS(
   )
 ```
 
-```{r}
+```{r eval=FALSE}
 pbmc_qc <- base::list.files(
       path = here::here("output_data"),
       full.names = TRUE
