@@ -6,3 +6,5 @@ wget https://cf.10xgenomics.com/samples/cell-arc/2.0.0/10k_PBMC_Multiome_nextgem
 
 tar -xzf 10k_PBMC_Multiome_nextgem_Chromium_X_filtered_feature_bc_matrix.tar.gz
 tar -xzf 10k_PBMC_Multiome_nextgem_Chromium_X_raw_feature_bc_matrix.tar.gz
+
+wget https://signac-objects.s3.amazonaws.com/pbmc_10k_v3.rds

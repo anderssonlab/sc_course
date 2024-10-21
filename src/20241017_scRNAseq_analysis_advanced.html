@@ -380,8 +380,8 @@ pbmc_data &lt;- Seurat::Read10X(
   )</code></pre>
 <pre><code>## 10X data contains more than one type and is being returned as a list containing matrices of each type.</code></pre>
 </div>
-<div id="see-6.0.-in-20241014_scrnaseq_analysis.rmd." class="section level4">
-<h4>See [6.0.] in ‘20241014_scRNAseq_analysis.Rmd’.</h4>
+<div id="see-3.8.-in-20241014_scrnaseq_analysis.rmd." class="section level4">
+<h4>See [3.8.] in ‘20241014_scRNAseq_analysis.Rmd’.</h4>
 <pre class="r"><code>pbmc_rna &lt;- base::list.files(
       path = here::here(&quot;output_data&quot;),
       full.names = TRUE
@@ -1259,12 +1259,9 @@ T-cells’)</h4>
 <hr />
 </div>
 </div>
-</div>
-<div id="save-load-data" class="section level2">
-<h2>[6.] Save &amp; load data</h2>
-<div id="save-the-nfeature_rna-cleaned-and-annotated-version-pbmc_qc" class="section level3">
-<h3>[6.1.] Save the “nFeature_RNA”-cleaned and annotated version
-pbmc_qc</h3>
+<div id="save-load-the-nfeature_rna-cleaned-and-annotated-version-pbmc_qc" class="section level3">
+<h3>[5.11.] Save &amp; load the “nFeature_RNA”-cleaned and annotated
+version pbmc_qc</h3>
 <pre class="r"><code>base::saveRDS(
     object = pbmc_qc,
     file = base::paste0(
@@ -1284,6 +1281,36 @@ pbmc_qc</h3>
       file = .
     )
 utils::str(pbmc_qc)</code></pre>
+<hr />
+</div>
+</div>
+<div id="additional-markdowns-vignettes-for-further-analysis-reading" class="section level2">
+<h2>[6.] Additional markdowns &amp; vignettes for further analysis &amp;
+reading</h2>
+<div id="clustering" class="section level3">
+<h3>[6.1.] Clustering</h3>
+<div id="significance-hierarchical-clustering---implemented-as-sc-shc-in-r-ref.-httpswww.nature.comarticless41592-023-01933-9-see-httpsgithub.comigrabskisc-shc" class="section level4">
+<h4>Significance hierarchical clustering - implemented as sc-SHC in R
+(ref.: <a href="https://www.nature.com/articles/s41592-023-01933-9" class="uri">https://www.nature.com/articles/s41592-023-01933-9</a>]),
+see <a href="https://github.com/igrabski/sc-SHC" class="uri">https://github.com/igrabski/sc-SHC</a></h4>
+</div>
+<div id="scanorama-implemented-in-python-with-an-r-interface-see-httpsgithub.combrianhiescanoramablobmasterbinrscanorama.r" class="section level4">
+<h4>Scanorama implemented in Python with an R interface, see <a href="https://github.com/brianhie/scanorama/blob/master/bin/R/scanorama.R" class="uri">https://github.com/brianhie/scanorama/blob/master/bin/R/scanorama.R</a></h4>
+</div>
+</div>
+<div id="trajectory-analysis" class="section level3">
+<h3>[6.2.] Trajectory analysis</h3>
+<div id="use-monocle3-function-wrapped-in-seurat-pipeline-to-perform-trajectory-analysis-see-httpshtmlpreview.github.iohttpsgithub.comsatijalabseurat-wrappersblobmasterdocsmonocle3.html" class="section level4">
+<h4>Use Monocle3 function wrapped in Seurat pipeline to perform
+trajectory analysis, see <a href="https://htmlpreview.github.io/?https://github.com/satijalab/seurat-wrappers/blob/master/docs/monocle3.html" class="uri">https://htmlpreview.github.io/?https://github.com/satijalab/seurat-wrappers/blob/master/docs/monocle3.html</a></h4>
+</div>
+<div id="and-also-httpsrpubs.commahima_boseseurat_and_monocle3_p" class="section level4">
+<h4>and also <a href="https://rpubs.com/mahima_bose/Seurat_and_Monocle3_p" class="uri">https://rpubs.com/mahima_bose/Seurat_and_Monocle3_p</a></h4>
+</div>
+<div id="trajectory-analysis-via-diffusion-maps-diffusion-pseudotime-analysis-or-slingshot-see-httpsbroadinstitute.github.io2019_scworkshopfunctional-pseudotime-analysis.html" class="section level4">
+<h4>Trajectory analysis via Diffusion maps, Diffusion pseudotime
+analysis or slingshot, see <a href="https://broadinstitute.github.io/2019_scWorkshop/functional-pseudotime-analysis.html" class="uri">https://broadinstitute.github.io/2019_scWorkshop/functional-pseudotime-analysis.html</a></h4>
+</div>
 </div>
 </div>
 

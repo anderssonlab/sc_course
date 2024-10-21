@@ -465,7 +465,7 @@ pbmc_rna_ <- pbmc_rna
 for(r in base::seq(0.1,1.2,0.1)){
   pbmc_rna_ <- Seurat::FindClusters(
       object = pbmc_rna_,
-      resolution = r,
+      resolution = r,  # <---- granularity parameter
       verbose = FALSE
     )
   }
@@ -477,9 +477,22 @@ clustree::clustree(
   )
 ```
 
+## [3.7.] Inspect various cluster definition granularities
+```{r eval=FALSE}
+Seurat::DimPlot(
+      object = pbmc_rna_,
+      reduction = "umap",
+      group.by = "RNA_snn_res.0.1" # <---- granularity parameter
+    ) +
+  theme_bw() +
+  theme(
+    aspect.ratio = 1
+  )
+```
+
 ---
 
-### [3.7.] Save & load data Seurat object 'pbmc_rna'
+### [3.8.] Save & load data Seurat object 'pbmc_rna'
 ```{r eval=FALSE}
 base::saveRDS(
     object = pbmc_rna,

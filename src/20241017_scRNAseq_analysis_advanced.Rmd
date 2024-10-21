@@ -33,7 +33,7 @@ pbmc_data <- Seurat::Read10X(
   )
 ```
 
-#### See [6.0.] in '20241014_scRNAseq_analysis.Rmd'.
+#### See [3.8.] in '20241014_scRNAseq_analysis.Rmd'.
 ```{r}
 pbmc_rna <- base::list.files(
       path = here::here("output_data"),
@@ -910,3 +910,15 @@ pbmc_qc <- base::list.files(
     )
 utils::str(pbmc_qc)
 ```
+
+---
+
+## [6.] Additional markdowns & vignettes for further analysis & reading
+### [6.1.] Clustering
+#### Significance hierarchical clustering - implemented as sc-SHC in R (ref.: https://www.nature.com/articles/s41592-023-01933-9]), see https://github.com/igrabski/sc-SHC
+#### Scanorama implemented in Python with an R interface, see https://github.com/brianhie/scanorama/blob/master/bin/R/scanorama.R
+
+### [6.2.] Trajectory analysis
+#### Use Monocle3 function wrapped in Seurat pipeline to perform trajectory analysis, see https://htmlpreview.github.io/?https://github.com/satijalab/seurat-wrappers/blob/master/docs/monocle3.html
+#### and also https://rpubs.com/mahima_bose/Seurat_and_Monocle3_p
+#### Trajectory analysis via Diffusion maps, Diffusion pseudotime analysis or slingshot, see https://broadinstitute.github.io/2019_scWorkshop/functional-pseudotime-analysis.html

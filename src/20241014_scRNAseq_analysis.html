@@ -861,7 +861,7 @@ chunk unfunctional.</h4>
 for(r in base::seq(0.1,1.2,0.1)){
   pbmc_rna_ &lt;- Seurat::FindClusters(
       object = pbmc_rna_,
-      resolution = r,
+      resolution = r,  # &lt;---- granularity parameter
       verbose = FALSE
     )
   }
@@ -871,15 +871,23 @@ clustree::clustree(
     x = pbmc_rna_[[]],
     prefix = &quot;RNA_snn_res.&quot;
   )</code></pre>
+</div>
+</div>
+</div>
+<div id="inspect-various-cluster-definition-granularities" class="section level2">
+<h2>[3.7.] Inspect various cluster definition granularities</h2>
+<pre class="r"><code>Seurat::DimPlot(
+      object = pbmc_rna_,
+      reduction = &quot;umap&quot;,
+      group.by = &quot;RNA_snn_res.0.1&quot; # &lt;---- granularity parameter
+    ) +
+  theme_bw() +
+  theme(
+    aspect.ratio = 1
+  )</code></pre>
 <hr />
-</div>
-</div>
-</div>
-<div id="save-load-data" class="section level2">
-<h2>[6.] Save &amp; load data</h2>
-<div id="save-seurat-object-pbmc_rna-the-nfeature_rna-cleaned-version-pbmc_qc" class="section level3">
-<h3>[6.0.] Save Seurat Object pbmc_rna &amp; the “nFeature_RNA”-cleaned
-version pbmc_qc</h3>
+<div id="save-load-data-seurat-object-pbmc_rna" class="section level3">
+<h3>[3.8.] Save &amp; load data Seurat object ‘pbmc_rna’</h3>
 <pre class="r"><code>base::saveRDS(
     object = pbmc_rna,
     file = base::paste0(
