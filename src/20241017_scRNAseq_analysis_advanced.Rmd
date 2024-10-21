@@ -885,9 +885,7 @@ Seurat::DimPlot(
 
 ---
 
-## [6.] Save & load data
-
-### [6.1.] Save the "nFeature_RNA"-cleaned and annotated version pbmc_qc
+### [5.11.] Save & load the "nFeature_RNA"-cleaned and annotated version pbmc_qc
 ```{r eval=FALSE}
 base::saveRDS(
     object = pbmc_qc,

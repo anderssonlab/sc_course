@@ -479,9 +479,7 @@ clustree::clustree(
 
 ---
 
-## [6.] Save & load data
-
-### [6.0.] Save Seurat Object pbmc_rna
+### [3.7.] Save & load data Seurat object 'pbmc_rna'
 ```{r eval=FALSE}
 base::saveRDS(
     object = pbmc_rna,

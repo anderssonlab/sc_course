@@ -1,155 +1,260 @@
 ---
-title: "Single-cell ATAC-seq and multiome analyses"
+title: "Novo Nordisk Applied Single Cell Analysis Course October 2024 - scATAC-seq analysis"
 output:
   html_document: default
   pdf_document: default
 date: "`r Sys.Date()`"
 ---
 
-Refer to Signac Vignettes
+Modified from Signac Vignettes
 Analyzing PBMC scATAC-seq: https://stuartlab.org/signac/articles/pbmc_vignette
 Joint RNA and ATAC analysis: https://stuartlab.org/signac/articles/pbmc_multiomic
 Motif analysis with Signac: https://stuartlab.org/signac/articles/motif_vignette
 
-## Pacakages Loading
-
-```{r message=FALSE, warning=FALSE}
+```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-library(Signac)
-library(Seurat)
-library(EnsDb.Hsapiens.v86)
-library(BSgenome.Hsapiens.UCSC.hg38)
-library(GenomicRanges)
-library(JASPAR2020)
-library(TFBSTools)
-library(patchwork)
-library(ggplot2)
 ```
 
-
-## Specify File Paths
-
-```{r}
-counts_dir <- "/maps/projects/ralab/data/projects/sc_course/input_data/filtered_feature_bc_matrix/"
-frag_path <- "/maps/projects/ralab/data/projects/sc_course/input_data/10k_PBMC_Multiome_nextgem_Chromium_X_atac_fragments.tsv.gz"
-metadata_path <- "/maps/projects/ralab/data/projects/sc_course/input_data/10k_PBMC_Multiome_nextgem_Chromium_X_per_barcode_metrics.csv"
-
-seurat_obj_rna <- "/maps/projects/ralab/data/projects/sc_course/output_data/20241015_pbmc_RNA_qc_annotated.rds" # replace it with Robert's scRNA final seurat result
-
-seurat_obj_output <- "/maps/projects/ralab/data/projects/sc_course/output_data/pbmc.ATAC.rds" 
-```
-
-
-
-## Data Loading
-
+## [0.] Prerequisites
+### [0.1.] Load necessary packages
 ```{r message=FALSE, warning=FALSE}
-counts <- Read10X(counts_dir)
-metadata <- read.csv(
+library(Signac) # scATAC-seq analysis tools
+library(Seurat) # scRNA-seq analysis tools
+library(GenomicRanges) # Process ATAC peak regions
+library(TFBSTools) # Transcription factor binding site analysis
+library(ggplot2) # Visualization tools
+library(patchwork) # combined multiple plots
+
+library(EnsDb.Hsapiens.v86) # Human gene annotation database
+library(BSgenome.Hsapiens.UCSC.hg38) # Human genome sequence database
+library(JASPAR2020) # Transcription factor motif database
+```
+
+
+## [1.] Import data and create seurat/signac object
+### [1.1.] Specify input files paths
+#### Here, we import Cell Ranger ARC pre-processed results of PBMC multiome data.
+#### For other 10x scATAC or multiome datasets, you can find these files under
+#### outs/ directory for each sample.
+#### See https://support.10xgenomics.com/single-cell-atac/software/pipelines/latest/output/overview (scATAC)
+#### or https://www.10xgenomics.com/support/software/cell-ranger-arc/latest/analysis/outputs/understanding-output (multiome)
+#### for more information of 10x Genomics Cell Ranger output
+```{r}
+count_matrix_dir <- "../input_data/filtered_feature_bc_matrix/"
+fragments_path <- "../input_data/10k_PBMC_Multiome_nextgem_Chromium_X_atac_fragments.tsv.gz"
+metadata_path <- "../input_data/10k_PBMC_Multiome_nextgem_Chromium_X_per_barcode_metrics.csv"
+```
+
+### [1.2.] Import count matrix
+```{r message=FALSE, warning=FALSE}
+pbmc_count_data <- Read10X(count_matrix_dir)
+# Inspect count data
+pbmc_count_data$Peaks[1:5,1:5]
+```
+
+### [1.3.] Import metadata
+```{r message=FALSE, warning=FALSE}
+pbmc_metadata <- read.csv(
   file = metadata_path,
   header = TRUE,
   row.names = 1
 )
-pbmc_rna <- readRDS(seurat_obj_rna)
-pbmc_rna <- UpdateSeuratObject(pbmc_rna)
+# Inspect metadata
+pbmc_metadata[1:5,]
 ```
 
-## Create Chromatin Assay
-
-```{r}
+### [1.4.] Create seurat/signac object
+```{r warning=FALSE}
+# Create chromatinAssay object
 chrom_assay <- CreateChromatinAssay(
-  counts = counts$Peaks,
+  counts = pbmc_count_data$Peaks, ## Specify scATAC-seq
   sep = c(":", "-"),
-  fragments = frag_path,
-  min.cells = 10,
-  min.features = 200
+  fragments = fragments_path,
+  min.cells = 10, # include peaks detected in at least 10 cells
+  min.features = 200 # include cells detecting more than 200 peaks
 )
 
+# Create seurat object from chromatinAssay object and integrate metadata
 pbmc_atac <- CreateSeuratObject(
   counts = chrom_assay,
-  assay = "peaks",
-  meta.data = metadata
+  assay = "peaks", # assay name
+  meta.data = pbmc_metadata
 )
 
-pbmc_atac[['peaks']]
-granges(pbmc_atac)
-```
-
-## Filter Chromosomes
-
-```{r}
+# Remove peaks in non-standard chromosomes
 peaks.keep <- seqnames(granges(pbmc_atac)) %in% standardChromosomes(granges(pbmc_atac))
 pbmc_atac <- pbmc_atac[as.vector(peaks.keep), ]
-```
 
-## Genome Annotation 
-
-```{r warning=FALSE}
+# Add gene annotation information
 annotation <- GetGRangesFromEnsDb(ensdb = EnsDb.Hsapiens.v86)
 seqlevels(annotation) <- paste0('chr', seqlevels(annotation))
-
-# Add the gene information to the object
 Annotation(pbmc_atac) <- annotation
 ```
 
-## Quality Metrics and Data Visualization
-
+### [1.5.] Data structure of seurat/signac object
+#### See https://stuartlab.org/signac/articles/data_structures for more 
+#### information about data structures and object interaction
 ```{r}
-# Compute nucleosome signal score, TSS enrichment score, and fractions
+# Show peak and cell number
+pbmc_atac
+
+# Show peak x cell count matrix
+pbmc_atac@assays$peaks$counts[1:5,1:5]
+
+# Show peak information
+granges(pbmc_atac)
+
+# Show gene annotation
+Annotation(pbmc_atac)
+```
+
+
+## [2.] Quality control (QC)
+#### We follow signac pipeline to use following QC metrics:
+#### i. Nucleosome signal: 
+####    ratio of mononucleosomal to nucleosome-free fragments
+#### ii. Transcriptional start site (TSS) enrichment score: 
+####     ratio of fragments centered at the TSS to fragments in TSS-flanking 
+####     regions (see https://www.encodeproject.org/data-standards/terms/)
+#### iii. Total number of fragments in peaks
+#### iv. Fraction of fragments in peaks
+#### v. Ratio reads in genomic blacklist regions
+### [2.1.] Compute quality control metrics
+```{r}
+# Compute nucleosome signal score per cell (It may take ~10 mins)
 pbmc_atac <- NucleosomeSignal(object = pbmc_atac)
-pbmc_atac <- TSSEnrichment(object = pbmc_atac)
+
+# Compute TSS enrichment score per cell (It may take ~10 mins)
+pbmc_atac <- TSSEnrichment(object = pbmc_atac) 
+
+# Add fraction of reads in peaks
 pbmc_atac$pct_reads_in_peaks <- pbmc_atac$atac_peak_region_fragments / pbmc_atac$atac_fragments * 100
+
+# Add blacklist ratio
 pbmc_atac$blacklist_ratio <- FractionCountsInRegion(
   object = pbmc_atac, 
   assay = 'peaks',
   regions = blacklist_hg38_unified
 )
-
-DensityScatter(pbmc_atac, x = 'nCount_peaks', y = 'TSS.enrichment', log_x = TRUE, quantiles = TRUE)
-pbmc_atac$nucleosome_group <- ifelse(pbmc_atac$nucleosome_signal > 2, 'NS > 2', 'NS < 2')
-FragmentHistogram(object = pbmc_atac, group.by = 'nucleosome_group')
-
-VlnPlot(
-  object = pbmc_atac,
-  features = c('nCount_peaks', 'TSS.enrichment', 'blacklist_ratio', 'nucleosome_signal', 'pct_reads_in_peaks'),
-  pt.size = 0.1,
-  ncol = 5
-)
 ```
 
-## Subsetting, UMAP, and Clustering
 
+### [2.2.] Determine threshold of QC metrics
+#### The exact QC thresholds need to be adjusted based on your dataset. 
+#### Consider plotting the distribution of each QC metric to accurately 
+#### determine the appropriate thresholds. The primary objective is to 
+#### exclude outliers while retaining the majority of cells.
 ```{r}
-# Subset data
+# Plot distribution of nucleosome signal
+hist(pbmc_atac$nucleosome_signal,
+     breaks = 20,
+     main = "nucleosome_signal")
+# Indicate threshold
+abline(v = 1.5, # threshold
+       col="red")
+
+# Plot distribution of TSS enrichment score
+hist(pbmc_atac$TSS.enrichment,
+     main = "TSS.enrichment")
+# Indicate threshold
+abline(v = 4, # threshold
+       col="red")
+
+# Plot distribution of total number of fragments in peaks
+hist(pbmc_atac$nCount_peaks,
+     main = "nCount_peaks")
+# Indicate threshold
+abline(v = 10000, # threshold
+       col="red")
+abline(v = 100000, # threshold
+       col="red")
+
+# Plot distribution of fraction of fragments in peaks
+hist(pbmc_atac$pct_reads_in_peaks,
+     main = "pct_reads_in_peaks")
+# Indicate threshold
+abline(v = 40, # threshold
+       col="red")
+
+# Plot distribution of ratio reads in genomic blacklist regions
+hist(pbmc_atac$blacklist_ratio,
+     main = "blacklist_ratio")
+# Indicate threshold
+abline(v = 0.01, # threshold
+       col="red")
+```
+
+### [2.3.] Filter high quality cells
+#### Filter cells according to thresholds determined above
+```{r}
 pbmc_atac <- subset(
   x = pbmc_atac,
-  subset = nCount_peaks > 10000 &
+  subset = nucleosome_signal < 1.5 &
+    TSS.enrichment > 4 &
+    nCount_peaks > 10000 &
     nCount_peaks < 100000 &
     pct_reads_in_peaks > 40 &
-    blacklist_ratio < 0.01 &
-    nucleosome_signal < 2 &
-    TSS.enrichment > 4
+    blacklist_ratio < 0.01 
 )
-
-# Dimensionality reduction and clustering
-pbmc_atac <- RunTFIDF(pbmc_atac)
-pbmc_atac <- FindTopFeatures(pbmc_atac, min.cutoff = 'q0')
-pbmc_atac <- RunSVD(pbmc_atac)
-DepthCor(pbmc_atac)
-
-pbmc_atac <- RunUMAP(object = pbmc_atac, reduction = 'lsi', dims = 2:30)
-pbmc_atac <- FindNeighbors(object = pbmc_atac, reduction = 'lsi', dims = 2:30)
-pbmc_atac <- FindClusters(object = pbmc_atac, verbose = FALSE, algorithm = 3)
-DimPlot(object = pbmc_atac, label = TRUE) + NoLegend()
 ```
 
-## Gene Activity and Feature Plotting
 
+
+## [3.] Dimensional reduction and clustering
+### [3.1.]  Normalization and linear dimensional reduction
+```{r}
+# Perform term frequency-inverse document frequency (TF-IDF) normalization
+pbmc_atac <- RunTFIDF(pbmc_atac)
+
+# Feature selection
+pbmc_atac <- FindTopFeatures(pbmc_atac, 
+                             min.cutoff = 'q0') # Use all peaks here
+
+# Perform singular value decomposition (SVD) for linear dimensional reduction
+pbmc_atac <- RunSVD(pbmc_atac)
+
+# Assess correlation between each LSI component and sequencing depth 
+DepthCor(pbmc_atac, n = 30) 
+# The first LSI component captures sequencing depth (technical variation)
+# rather than biological variation.
+```
+
+### [3.2.] Non-linear dimension reduction with UMAP
+```{r message=FALSE, warning=FALSE}
+pbmc_atac <- RunUMAP(object = pbmc_atac, 
+                     reduction = 'lsi', 
+                     dims = 2:30) # Exclude the first LSI component 
+```
+
+### [3.3.] Clustering
+```{r}
+# Calculate nearest neighbors
+pbmc_atac <- FindNeighbors(object = pbmc_atac, 
+                           reduction = 'lsi', 
+                           dims = 2:30) # Exclude the first LSI component
+
+# Louvain clustering
+pbmc_atac <- FindClusters(object = pbmc_atac,
+                          resolution = 0.8) # higher resolution => more clusters
+
+# Show clustering results on UMAP
+DimPlot(object = pbmc_atac, 
+        label = TRUE) + 
+  NoLegend()
+```
+
+## [4.] Cell type annotation
+### [4.1.] Quantify gene activity
+#### Quantify the activity of each gene by summing the fragments intersecting 
+#### the gene body and promoter (TSS 2 kb upstream region)
 ```{r warning=FALSE}
+# Generate a gene activity matrix  (It may take ~8 mins)
 gene.activities <- GeneActivity(pbmc_atac)
 
-# Add the gene activity matrix to the Seurat object as a new assay and normalize it
+# Add the gene activity matrix to the Seurat object as a new assay
 pbmc_atac[['RNA']] <- CreateAssayObject(counts = gene.activities)
+
+# Normalize gene activity matrix
 pbmc_atac <- NormalizeData(
   object = pbmc_atac,
   assay = 'RNA',
@@ -157,128 +262,142 @@ pbmc_atac <- NormalizeData(
   scale.factor = median(pbmc_atac$nCount_RNA)
 )
 
+# Show gene activity of marker genes on UMAP
 DefaultAssay(pbmc_atac) <- 'RNA'
-
 FeaturePlot(
   object = pbmc_atac,
   features = c('MS4A1', 'CD3D', 'LEF1', 'NKG7', 'TREM1', 'LYZ'),
   pt.size = 0.1,
   max.cutoff = 'q95',
-  ncol = 3
+  ncol = 2
 )
 ```
 
 
-## Find Transfer Anchors
+### [4.2.] Transfer cell-type labels from scRNA-seq data
+```{r warning=FALSE}
+# Import seurat object of scRNA-seq
+pbmc_rna <- readRDS("../output_data/20241015_pbmc_RNA_qc_annotated.rds")
+pbmc_rna <- UpdateSeuratObject(pbmc_rna)
 
-```{r}
+# Find anchors between scATAC gene activity and scRNA gene expression
 transfer.anchors <- FindTransferAnchors(
   reference = pbmc_rna,
   query = pbmc_atac,
   reduction = 'cca'
 )
-```
 
-## Transfer Data and Add Metadata
-
-```{r}
+# Transfer cell-type labels from scRNA-seq to scATAC-seq basing on anchors
 predicted.labels <- TransferData(
   anchorset = transfer.anchors,
   refdata = pbmc_rna$predicted.id,
   weight.reduction = pbmc_atac[['lsi']],
-  dims = 2:30
+  dims = 2:30 # Exclude the first LSI component
 )
 pbmc_atac <- AddMetaData(object = pbmc_atac, metadata = predicted.labels)
+
+# Since we are using a scRNA+ATAC multiome dataset, we can determine the real 
+# correspondence between scRNA and scATAC cells based on their barcodes. 
+# Therefore, we project the cell types from scRNA-seq to scATAC-seq according 
+# to real correspondence to assess the performance of the transfer algorithm.
+pbmc_atac@meta.data[,"real.labels"] <- pbmc_atac@meta.data[colnames(pbmc_atac),"predicted.id"]
 ```
 
-## Visualization of Cell Types
 
+### [4.3.] Visualize cell type annotation
 ```{r}
 plot1 <- DimPlot(
   object = pbmc_rna,
   group.by = 'predicted.id',
   label = TRUE,
-  repel = TRUE) + NoLegend() + ggtitle('scRNA-seq')
+  repel = TRUE) + 
+  NoLegend() + 
+  ggtitle('scRNA-seq')
+plot1
 
 plot2 <- DimPlot(
   object = pbmc_atac,
   group.by = 'predicted.id',
   label = TRUE,
-  repel = TRUE) + NoLegend() + ggtitle('scATAC-seq')
+  repel = TRUE) + NoLegend() + ggtitle('scATAC-seq, predicted labels')
+plot2
 
-plot1 + plot2
+plot3 <- DimPlot(
+  object = pbmc_atac,
+  group.by = 'real.labels',
+  label = TRUE,
+  repel = TRUE) + NoLegend() + ggtitle('scATAC-seq, real labels')
+plot3
 ```
+### [4.4.] Peak calling for each cell type
+#### Cell Ranger aggregates all cell types together for peak calling, 
+#### potentially overlooking cell-type specific peaks in rare cell type, 
+#### such as pDCs. This oversight might affect the performance of differential
+#### accessibility analysis.  We recommend  calling peaks for each cell type 
+#### (see https://stuartlab.org/signac/articles/peak_calling for more 
+#### information). However, this process requires installing python package 
+#### macs2 and may take hours to compute. Therefore, we will not perform this 
+#### step in today's course.
 
-## Identify Major Predicted IDs
 
+
+## [5.] Differential accessibility analysis
+### [5.1.] Identify differentially accessible peaks between cell types
 ```{r}
-predicted_id_counts <- table(pbmc_atac$predicted.id)
-major_predicted_ids <- names(predicted_id_counts[predicted_id_counts > 20])
-pbmc_atac <- pbmc_atac[, pbmc_atac$predicted.id %in% major_predicted_ids]
 Idents(pbmc_atac) <- pbmc_atac$predicted.id
-```
-
-## Differential Accessibility Analysis
-
-```{r}
 DefaultAssay(pbmc_atac) <- 'peaks'
 da_peaks <- FindMarkers(
   object = pbmc_atac,
   ident.1 = "CD4 Naive",
   ident.2 = "CD14+ Monocytes",
-  test.use = 'wilcox',
-  min.pct = 0.1
+  test.use = 'wilcox', # Wilcoxon Rank Sum test
+  min.pct = 0.1 # peaks detected in 10% cells in either of the two populations
 )
 head(da_peaks)
 ```
 
-## Plots for Selected Features
-
+### [5.2.] Visualize differential peak
 ```{r}
+# Show peak accessibility using violin plot
 plot1 <- VlnPlot(
   object = pbmc_atac,
-  features = rownames(da_peaks)[1],
+  features = rownames(da_peaks)[1], # Specify peak name
   pt.size = 0.1,
   idents = c("CD4 Naive", "CD14+ Monocytes")
 )
+plot1
+
+# Show peak accessibility on UMAP
 plot2 <- FeaturePlot(
   object = pbmc_atac,
-  features = rownames(da_peaks)[1],
+  features = rownames(da_peaks)[1],  # Specify peak name
   pt.size = 0.1
 )
-
-plot1 | plot2
+plot2
 ```
 
-## Find Closest Genes
-
+### [5.3.] Annotate differential peaks to closest genes
 ```{r}
+# Selecte differential peaks, log2(fold change) > 3
 open_cd4naive <- rownames(da_peaks[da_peaks$avg_log2FC > 3, ])
 open_cd14mono <- rownames(da_peaks[da_peaks$avg_log2FC < -3, ])
 
-
+# Find closest genes
 closest_genes_cd4naive <- ClosestFeature(pbmc_atac, regions = open_cd4naive)
 closest_genes_cd14mono <- ClosestFeature(pbmc_atac, regions = open_cd14mono)
 
+# Show differential peaks and closest genes
 head(closest_genes_cd4naive)
 head(closest_genes_cd14mono)
 ```
 
-## Coverage Plots
-
+### [5.4.] Visualize genomic region
 ```{r}
-regions_highlight <- subsetByOverlaps(StringToGRanges(open_cd4naive), LookupGeneCoords(pbmc_atac, "CD4"))
+# Select highlight regions
+regions_highlight <- subsetByOverlaps(StringToGRanges(open_cd14mono), 
+                                      LookupGeneCoords(pbmc_atac, "LYZ"))
 
-CoveragePlot(
-  object = pbmc_atac,
-  region = "CD4",
-  region.highlight = regions_highlight,
-  extend.upstream = 1000,
-  extend.downstream = 1000
-)
-
-regions_highlight <- subsetByOverlaps(StringToGRanges(open_cd14mono), LookupGeneCoords(pbmc_atac, "LYZ"))
-
+# Plot coverage
 CoveragePlot(
   object = pbmc_atac,
   region = "LYZ",
@@ -289,19 +408,18 @@ CoveragePlot(
 ```
 
 
-
-## Load Motif Data from JASPAR
-
-```{r}
+## [6.] Motif analysis
+### [6.1.] Load Motif information from JASPAR database
+```{r warning=FALSE}
+# Extract TF motif from JASPAR database
 pfm <- getMatrixSet(
   x = JASPAR2020,
-  opts = list(collection = "CORE", tax_group = 'vertebrates', all_versions = FALSE)
+  opts = list(collection = "CORE", 
+              tax_group = 'vertebrates', 
+              all_versions = FALSE)
 )
-```
 
-## Add Motif Information to the PBMC Object
-
-```{r warning=FALSE}
+# Add motif information to the seurat object
 pbmc_atac <- AddMotifs(
   object = pbmc_atac,
   genome = BSgenome.Hsapiens.UCSC.hg38,
@@ -309,45 +427,34 @@ pbmc_atac <- AddMotifs(
 )
 ```
 
-## Identify Top Differentially Accessible Peaks
-
+### [6.2.] Identify motifs enriched in differential peaks
 ```{r}
-top.da.peak <- rownames(da_peaks[da_peaks$p_val < 0.005 & da_peaks$pct.1 > 0.2, ])
-```
-
-## Find Enriched Motifs in Top Peaks
-
-```{r}
+# find enriched motifs in differential Peaks
 DefaultAssay(pbmc_atac) <- 'peaks'
 enriched.motifs <- FindMotifs(
   object = pbmc_atac,
-  features = top.da.peak
+  features = open_cd4naive # differential peaks identified in [5.3.]
 )
-```
 
-## Plot Top Enriched Motifs
-
-```{r}
+# Plot enriched Motifs
 MotifPlot(
   object = pbmc_atac,
   motifs = head(rownames(enriched.motifs))
 )
 ```
 
-## Run ChromVAR for Motif Variability Analysis
-
+### [6.3.] Computing motif activities with ChromVAR
 ```{r warning=FALSE}
-pbmc_atac <- RunChromVAR(object = pbmc_atac, genome = BSgenome.Hsapiens.UCSC.hg38)
+# Run ChromVAR
+pbmc_atac <- RunChromVAR(object = pbmc_atac, 
+                         genome = BSgenome.Hsapiens.UCSC.hg38)
 DefaultAssay(pbmc_atac) <- 'chromvar'
-```
 
-## Visualize the Embedding and Feature Plot
-
-```{r}
+# Visualize motif activity of Mef2c on UMAP
 p1 <- DimPlot(pbmc_atac, label = TRUE, pt.size = 0.1) + NoLegend()
 p2 <- FeaturePlot(
   object = pbmc_atac,
-  features = "MA0497.1",
+  features = "MA0497.1", # Mef2c
   min.cutoff = 'q10',
   max.cutoff = 'q90',
   pt.size = 0.1
@@ -355,8 +462,7 @@ p2 <- FeaturePlot(
 p1 + p2
 ```
 
-## Find Differential Activity of Motifs between Cell Types
-
+### [6.4.] Identify differentially activity of motifs between cell types
 ```{r}
 differential.activity <- FindMarkers(
   object = pbmc_atac,
@@ -366,11 +472,8 @@ differential.activity <- FindMarkers(
   mean.fxn = rowMeans,
   fc.name = "avg_diff"
 )
-```
 
-## Plot Differential Activity for Top Motifs
-
-```{r}
+# Visualize motifs with differentially activity
 MotifPlot(
   object = pbmc_atac,
   motifs = head(rownames(differential.activity)),
@@ -378,9 +481,9 @@ MotifPlot(
 )
 ```
 
-
+## [7.] Save seurat object
 ```{r save-results}
-saveRDS(pbmc_atac, seurat_obj_output)
+saveRDS(pbmc_atac, "../output_data/pbmc.ATAC.rds")
 ```
 ```
 
