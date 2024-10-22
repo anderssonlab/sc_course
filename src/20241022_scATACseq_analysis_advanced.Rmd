@@ -32,8 +32,7 @@ library(JASPAR2020) # Transcription factor motif database
 
 ### [1.6.] Import previous scATAC seurat object
 ```{r message=FALSE, warning=FALSE}
-pbmc_atac <- readRDS(paste0(here::here("output_data"),
-                            "/pbmc_ATAC.rds"))
+pbmc_atac <- readRDS("../output_data//pbmc_ATAC.rds")
 ```
 
 
@@ -46,18 +45,18 @@ pbmc_atac <- readRDS(paste0(here::here("output_data"),
 gene.activities <- GeneActivity(pbmc_atac)
 
 # Add the gene activity matrix to the Seurat object as a new assay
-pbmc_atac[['RNA']] <- CreateAssayObject(counts = gene.activities)
+pbmc_atac[['GeneActivities']] <- CreateAssayObject(counts = gene.activities)
 
 # Normalize gene activity matrix
 pbmc_atac <- NormalizeData(
   object = pbmc_atac,
-  assay = 'RNA',
+  assay = 'GeneActivities',
   normalization.method = 'LogNormalize',
-  scale.factor = median(pbmc_atac$nCount_RNA)
+  scale.factor = median(pbmc_atac$nCount_GeneActivities)
 )
 
 # Show gene activity of marker genes on UMAP
-DefaultAssay(pbmc_atac) <- 'RNA'
+DefaultAssay(pbmc_atac) <- 'GeneActivities'
 FeaturePlot(
   object = pbmc_atac,
   features = c('MS4A1', 'CD3D', 'LEF1', 'NKG7', 'TREM1', 'LYZ'),
@@ -71,13 +70,7 @@ FeaturePlot(
 ### [4.2.] Transfer cell-type labels from scRNA-seq data
 ```{r warning=FALSE}
 # Import scRNA-seq seurat object  
-pbmc_rna_path = base::list.files(
-      path = here::here("output_data"),
-      full.names = TRUE
-    )
-pbmc_rna_path = stringr::str_subset(pbmc_rna_path,
-                                    "pbmc_RNA_qc_annotated.rds")
-pbmc_rna <- readRDS(pbmc_rna_path)
+pbmc_rna <- readRDS("../output_data/20241015_pbmc_RNA_qc_annotated.rds")
 pbmc_rna <- UpdateSeuratObject(pbmc_rna)
 
 # Find anchors between scATAC gene activity and scRNA gene expression
@@ -100,8 +93,11 @@ pbmc_atac <- AddMetaData(object = pbmc_atac, metadata = predicted.labels)
 # correspondence between scRNA and scATAC cells based on their barcodes. 
 # Therefore, we project the cell types from scRNA-seq to scATAC-seq according 
 # to real correspondence to assess the performance of the transfer algorithm.
-pbmc_atac@meta.data[,"real.labels"] <- pbmc_atac@meta.data[colnames(pbmc_atac),
-                                                           "predicted.id"]
+pbmc_atac@meta.data[,"real.labels"] <- NA
+cell.intersected = intersect(colnames(pbmc_atac),colnames(pbmc_rna))
+pbmc_atac@meta.data[cell.intersected,"real.labels"] <- 
+  pbmc_rna@meta.data[cell.intersected,
+                     "predicted.id"]
 ```
 
 
@@ -283,22 +279,74 @@ MotifPlot(
 )
 ```
 
-## [7.] Save seurat object
+
+## [7.] scATAC+scRNA multiome analysis: Linking peaks to genes
+### [7.1.] Add scRNA-seq data
+```{r warning=FALSE}
+# Import count matrix
+pbmc_count_data <- Read10X("../input_data/filtered_feature_bc_matrix/")
+
+# Create import count matrix
+pbmc_atac[["RNA"]] <- CreateAssayObject(pbmc_count_data$`Gene Expression`[,colnames(pbmc_atac)],
+                                        min.cells = 3)
+# Normalization and PCA
+DefaultAssay(pbmc_atac) <- "RNA"
+pbmc_atac <- SCTransform(pbmc_atac)
+pbmc_atac <- RunPCA(pbmc_atac)
+```
+
+### [7.2.] Link peaks to genes
+```{r warning=FALSE}
+# Compute the GC content for each peak
+DefaultAssay(pbmc_atac) <- "peaks"
+pbmc_atac <- RegionStats(pbmc_atac, 
+                         genome = BSgenome.Hsapiens.UCSC.hg38)
+
+# Link peaks to genes
+pbmc_atac <- LinkPeaks(
+  object = pbmc_atac,
+  peak.assay = "peaks",
+  expression.assay = "SCT",
+  genes.use = c("MS4A1") # Replace it with genes the you are interested in :)
+)
+```
+
+### [7.3.] Visualize peak-gene links
+```{r}
+# Set cell types for plotting
+idents.plot <- c("pre-B cell", "B cell progenitor",
+                 "CD14+ Monocytes", "CD16+ Monocytes", 
+                 "CD8 effector", "CD8 Naive")
+pbmc_atac <- SortIdents(pbmc_atac)
+
+# Plot peak-gene links for MS4A1
+p <- CoveragePlot(
+  object = pbmc_atac,
+  region = "MS4A1", # Replace it with genes the you are interested in :)
+  features = "MS4A1", # Replace it with genes the you are interested in :)
+  expression.assay = "SCT",
+  idents = idents.plot,
+  extend.upstream = 500,
+  extend.downstream = 10000
+)
+p
+```
+
+## [8.] Save seurat object
 ```{r}
 base::saveRDS(
     object = pbmc_atac,
-    file = paste0(here::here("output_data"),
-                  "/pbmc_ATAC_advanced.rds")
+    file = "../output_data/pbmc_ATAC_advanced.rds"
   )
 ```
 
 
-## [8.] Additional vignettes for further reading & analysis
-### [8.1.] Trajectory analysis of scATAC data
+## [9.] Additional vignettes for further reading & analysis
+### [9.1.] Trajectory analysis of scATAC data
 #### https://stuartlab.org/signac/articles/monocle
-### [8.2.] Transcription factor footprinting
+### [9.2.] Transcription factor footprinting
 #### https://stuartlab.org/signac/articles/footprint
-### [8.3.] Co-accessible networks
+### [9.3.] Co-accessible networks
 #### https://stuartlab.org/signac/articles/cicero
 
 

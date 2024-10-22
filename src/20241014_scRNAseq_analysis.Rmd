@@ -77,6 +77,7 @@ base::dir.exists(paths = dir)
 ```
 
 ### [1.1.] Read in data as sparse matrices
+#### Cellranger provides 'barcodes', 'features', 'matrix' output files
 #### Data read in as dgCMatrices.
 ```{r}
 pbmc_data <- Seurat::Read10X(
@@ -482,7 +483,7 @@ clustree::clustree(
 Seurat::DimPlot(
       object = pbmc_rna_,
       reduction = "umap",
-      group.by = "RNA_snn_res.0.1" # <---- granularity parameter
+      group.by = "RNA_snn_res.1.2" # <---- granularity parameter
     ) +
   theme_bw() +
   theme(
