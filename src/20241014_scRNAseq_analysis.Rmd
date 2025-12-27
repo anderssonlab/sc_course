@@ -108,6 +108,9 @@ pbmc_rna <- Seurat::CreateSeuratObject(
     min.cells = 3, # minimal amount of cells expressing a feature
     min.features = 200 # minimal amount of features detected per cell
   )
+
+utils::str(pbmc_rna)
+pbmc_rna@assays # see Layers
 ```
 
 #### Alternatively create a Seurat object from both matrices.
@@ -119,7 +122,9 @@ pbmc_multi <- Seurat::CreateSeuratObject(
     min.cells = 3, # minimal amount of cells expressing a feature
     min.features = 200 # minimal amount of features detected per cell
   )
+
 utils::str(pbmc_multi)
+pbmc_multi@assays # see Layers
 ```
 
 ### [1.4.] Inspect the Seurat object
@@ -164,7 +169,7 @@ Seurat::FeatureScatter(
       feature1 = "nCount_RNA",
       feature2 = "percent.mt"
     ) +
-  geom_density2d() +
+  ggplot2::geom_density2d() +
   geom_hline(
       yintercept = base::c(5,10),
       linetype = "dashed"
@@ -179,6 +184,24 @@ Seurat::FeatureScatter(
   geom_hline(
       yintercept = base::c(200L,2500L),
       linetype = "dashed"
+    )
+```
+
+```{r echo=FALSE, eval=FALSE}
+pbmc_rna@meta.data %>%
+  arrange(percent.mt) %>%
+ggplot2::ggplot(
+      data = .,
+      mapping = aes(
+        x = nCount_RNA,
+        y = nFeature_RNA,
+        colour = percent.mt
+      )
+    )+
+  geom_point() +
+  theme_bw() +
+  theme(
+      aspect.ratio = 1
     )
 ```
 
@@ -254,6 +277,51 @@ Seurat::LabelPoints(
   geom_hline(
       yintercept = 1.25,
       linetype = "dashed"
+    )
+```
+
+```{r echo=FALSE, eval=FALSE}
+utils::str(pbmc_rna)
+pbmc_rna@assays$RNA$data
+Matrix::rowMeans(pbmc_rna@assays$RNA$counts)["FAM87B"]
+base::apply(X = pbmc_rna@assays$RNA$counts, MARGIN = 1, FUN = var)
+
+SeuratObject::HVFInfo(
+      object = pbmc_rna,
+      assay = NULL,
+      method = NULL,
+      status = TRUE
+    ) %>%
+  ggplot2::ggplot(
+      data = .,
+      mapping = aes(
+        x = log2(mean),
+        y = log2(variance)
+      )
+    ) +
+  geom_point() +
+  theme_bw() +
+  theme(
+      aspect.ratio = 1
+    )
+
+SeuratObject::HVFInfo(
+      object = pbmc_rna,
+      assay = NULL,
+      method = NULL,
+      status = TRUE
+    ) %>%
+  ggplot2::ggplot(
+      data = .,
+      mapping = aes(
+        x = log2(mean),
+        y = variance.standardized
+      )
+    ) +
+  geom_point() +
+  theme_bw() +
+  theme(
+      aspect.ratio = 1
     )
 ```
 
@@ -387,7 +455,7 @@ Seurat::JackStrawPlot(
 
 pbmc_rna <- Seurat::FindNeighbors(
     object = pbmc_rna,
-    dims = 1:10,
+    dims = 1:10, # 1:10 / 1:5 / 1:4
     k.param = 20, # default
     verbose = FALSE,
     l2.norm = FALSE
@@ -417,7 +485,7 @@ pbmc_rna <- Seurat::FindClusters(
 pbmc_rna <- Seurat::RunUMAP(
     object = pbmc_rna,
     umap.method = "uwot",
-    dims = 1:10,
+    dims = 1:10, # 1:10 / 1:5 / 1:4
     verbose = FALSE,
     seed.use = 42
   )
@@ -483,7 +551,7 @@ clustree::clustree(
 Seurat::DimPlot(
       object = pbmc_rna_,
       reduction = "umap",
-      group.by = "RNA_snn_res.1.2" # <---- granularity parameter
+      group.by = "RNA_snn_res.0.2" # <---- granularity parameter
     ) +
   theme_bw() +
   theme(

@@ -50,7 +50,7 @@ pbmc_rna <- base::list.files(
 ## [4.] Additional analysis & quality checks
 
 ### [4.0.] Subsample number of cells in initial scRNAseq features x cells matrix
-#### 100,000 instead of 733,612 input cells.
+#### 100,000 instead of 733,612 input cells (="base::ncol(pbmc_data$`Gene Expression`)").
 ```{r}
 base::set.seed(1)
 sub = 1e+5
@@ -297,7 +297,7 @@ ggplot2::ggplot(
       mapping = aes(
         x = umap_1,
         y = umap_2,
-        color = nFeature_RNA # percent.mt # nCount_RNA, 
+        color = percent.mt # nFeature_RNA # percent.mt # nCount_RNA,
       )
     ) +
     geom_point(
@@ -341,12 +341,12 @@ ggplot2::ggplot(
 ```
 
 ### [4.7.] Cluster-specific quality metrics
-```{r}
+```{r echo=FALSE, eval=FALSE}
 ggplot2::ggplot(
       data = meta_comb,
       mapping = aes(
         x = seurat_clusters,
-        y = nFeature_RNA # percent.mt # nCount_RNA
+        y = nCount_RNA # nFeature_RNA # percent.mt # nCount_RNA
       )
     ) +
   geom_jitter(
@@ -373,7 +373,7 @@ ggplot2::ggplot(
 ### [4.8.] Rerun analysis by changing QC cut-offs
 #### No parameters changed comapred to [1.3.] - [3.4.] in '20241014_scRNAseq_analysis.Rmd'.
 #### Elbow plot looks identical to pbmc_rna.
-```{r}
+```{r eval=FALSE, echo_FALSE}
 pbmc_qc <- Seurat::CreateSeuratObject(
     counts = pbmc_data$`Gene Expression`,
     assay = "RNA",
@@ -446,7 +446,7 @@ Seurat::DimPlot(
 ```
 
 ### [4.9.] Map e.g., mitochondrial contribution to UMAP
-```{r eval=FALSE}
+```{r eval=FALSE, echo=FALSE}
 meta_qc <- pbmc_qc@meta.data %>%
   tibble::as_tibble(rownames = "cell")
 umap_qc <- pbmc_qc@reductions$umap@cell.embeddings %>%
@@ -470,7 +470,7 @@ ggplot2::ggplot(
       mapping = aes(
         x = umap_1,
         y = umap_2,
-        color = nFeature_RNA # percent.mt # nCount_RNA
+        color = percent.mt # nFeature_RNA # percent.mt # nCount_RNA
       )
     ) +
   geom_point(
@@ -537,9 +537,35 @@ ggplot2::ggplot(
   )
 ```
 
+### [4.11.] Save & load the "nFeature_RNA"-cleaned and annotated version pbmc_qc
+```{r eval=FALSE}
+base::saveRDS(
+    object = pbmc_qc,
+    file = base::paste0(
+        here::here("output_data/"),
+        base::format(base::Sys.time(),"%Y%m%d"),
+        "_pbmc_RNA_qc_annotated",
+        ".rds"
+      ),
+    compress = TRUE
+  )
+```
+
+```{r eval=FALSE}
+pbmc_qc <- base::list.files(
+      path = here::here("output_data"),
+      full.names = TRUE
+    ) %>%
+  stringr::str_subset("RNA_qc.rds") %>%
+  base::readRDS(
+      file = .
+    )
+utils::str(pbmc_qc)
+```
+
 ---
 
-#### Question: Do cluster 7 & 8 consist of doublets or are these biologically meaningful cell types?
+#### Extra question: Do cluster 7 & 8 consist of doublets or are these biologically meaningful cell types?
 #### (e.g., annotations, doublet detection)
 
 ---
@@ -582,14 +608,16 @@ pbmc_markers %>%
   dplyr::arrange(cluster, dplyr::desc(avg_log2FC)) %>%
   dplyr::filter(
       dplyr::row_number() %in% 1:10
-    )
+    ) %>%
+  print(n = 100)
 ```
 
 ### [5.2.] Read out gene expression values from Seurat object
 #### Default plotting via 'Seurat::FeaturePlot(pbmc_qc, features = "CD8A")'.
 #### Access to genes via 'SeuratObject::Features(x = pbmc_qc,layer = "data")'.
 ```{r}
-gene <- "CD8A"
+gene <- "IL1A"
+# gene <- "IL1B"
 
 ge_comb <- Seurat::FetchData(
     object = pbmc_qc,
@@ -610,8 +638,8 @@ ge_comb <- Seurat::FetchData(
 ```
 
 #### Alternatively use direct access to the S3 Seurat object data.
-```{r eval=FALSE}
-gene <- "CD8A"
+```{r echo= FALSE, eval=FALSE}
+gene <- "IL1A"
 m <- pbmc_qc@assays$RNA@layers$data
 base::colnames(m) <- base::colnames(pbmc_qc)
 base::rownames(m) <- base::rownames(pbmc_qc)
@@ -644,7 +672,7 @@ ggplot2::ggplot(
       mapping = aes(
         x = umap_1,
         y = umap_2,
-        color = CD8A
+        color = IL1A
       )
     ) +
   geom_point(
@@ -785,7 +813,7 @@ ggplot2::ggplot(
 
 ---
 
-#### Question: Are platelets a real cluster or ambient RNA?
+#### Extra question: Are platelets a real cluster or ambient RNA?
 
 ```{r eval=FALSE}
 meta_qc_comb %>%
@@ -794,7 +822,9 @@ meta_qc_comb %>%
 
 ---
 
-### [5.9.] Plot significantly enriched pathways between two cell types
+## [6.] Supplement / Appendix
+
+### [6.0.] Plot significantly enriched pathways between two cell types
 ```{r message=FALSE, warning=FALSE, eval=FALSE}
 dplyr::distinct(meta_qc_comb,predicted.id,seurat_clusters)
 enrichR::listEnrichrSites()
@@ -819,7 +849,7 @@ Seurat::DEenrichRPlot(
 
 ---
 
-### [5.10.] SCTransform
+### [6.1.] SCTransform
 #### No QC filtering performed, which leads to inclusion of contaminations again.
 ```{r}
 base::set.seed(1L)
@@ -880,45 +910,20 @@ Seurat::DimPlot(
 
 ---
 
-#### Question: Does SCTransform recapitulate the cell type distribution identified via transferred annotations better?
+#### Extra question: Does SCTransform recapitulate the cell type distribution identified via transferred annotations better?
 #### (e.g., better separation of small clusters like 'Double negative T-cells')
 
 ---
 
-### [5.11.] Save & load the "nFeature_RNA"-cleaned and annotated version pbmc_qc
-```{r eval=FALSE}
-base::saveRDS(
-    object = pbmc_qc,
-    file = base::paste0(
-        here::here("output_data/"),
-        base::format(base::Sys.time(),"%Y%m%d"),
-        "_pbmc_RNA_qc_annotated",
-        ".rds"
-      ),
-    compress = TRUE
-  )
-```
+## [7.] Additional markdowns & vignettes for further analysis & reading
 
-```{r eval=FALSE}
-pbmc_qc <- base::list.files(
-      path = here::here("output_data"),
-      full.names = TRUE
-    ) %>%
-  stringr::str_subset("RNA_qc.rds") %>%
-  base::readRDS(
-      file = .
-    )
-utils::str(pbmc_qc)
-```
+### [7.1.] Clustering
 
----
-
-## [6.] Additional markdowns & vignettes for further analysis & reading
-### [6.1.] Clustering
 #### Significance hierarchical clustering - implemented as sc-SHC in R (ref.: https://www.nature.com/articles/s41592-023-01933-9]), see https://github.com/igrabski/sc-SHC
 #### Scanorama implemented in Python with an R interface, see https://github.com/brianhie/scanorama/blob/master/bin/R/scanorama.R
 
-### [6.2.] Trajectory analysis
+### [7.2.] Trajectory analysis
+
 #### Use Monocle3 function wrapped in Seurat pipeline to perform trajectory analysis, see https://htmlpreview.github.io/?https://github.com/satijalab/seurat-wrappers/blob/master/docs/monocle3.html
 #### and also https://rpubs.com/mahima_bose/Seurat_and_Monocle3_p
 #### Trajectory analysis via Diffusion maps, Diffusion pseudotime analysis or slingshot, see https://broadinstitute.github.io/2019_scWorkshop/functional-pseudotime-analysis.html
