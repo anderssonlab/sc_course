@@ -279,11 +279,11 @@ Seurat::DimPlot(
   NoLegend()
 ```
 
-### [3.4.] Save seurat object
+### [3.4.] Save Seurat object
 ```{r}
 base::saveRDS(
   object = pbmc_atac,
-  file = paste0(
+  file = base::paste0(
       here::here("output_data"),
       "/pbmc_ATAC.rds"
     )

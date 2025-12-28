@@ -14,231 +14,290 @@ date: "`r Sys.Date()`"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+---
+
 ## [0.] Prerequisites
+
+### [0.0.] Install necessary packages
+```{r}
+install.packages('ggseqlogo')
+```
+
+
 ### [0.1.] Load necessary packages
 ```{r message=FALSE, warning=FALSE}
-library(Signac) # scATAC-seq analysis tools
-library(Seurat) # scRNA-seq analysis tools
-library(GenomicRanges) # Process ATAC peak regions
-library(TFBSTools) # Transcription factor binding site analysis
-library(ggplot2) # Visualization tools
-library(patchwork) # Combined multiple plots
+base::library(Signac) # scATAC-seq analysis tools
+base::library(Seurat) # scRNA-seq analysis tools
+base::library(GenomicRanges) # Process ATAC peak regions
+base::library(TFBSTools) # Transcription factor binding site analysis
+base::library(ggplot2) # Visualization tools
+base::library(patchwork) # Combined multiple plots
 
-library(EnsDb.Hsapiens.v86) # Human gene annotation database
-library(BSgenome.Hsapiens.UCSC.hg38) # Human genome sequence database
-library(JASPAR2020) # Transcription factor motif database
+base::library(EnsDb.Hsapiens.v86) # Human gene annotation database
+base::library(BSgenome.Hsapiens.UCSC.hg38) # Human genome sequence database
+base::library(JASPAR2020) # Transcription factor motif database
 ```
 
-
-### [1.6.] Import previous scATAC seurat object
+### [3.5.] Import previous scATAC seurat object
 ```{r message=FALSE, warning=FALSE}
-pbmc_atac <- readRDS("../output_data//pbmc_ATAC.rds")
+pbmc_atac <- base::readRDS(
+    file = base::paste0(
+      here::here("output_data"),
+      "/pbmc_ATAC.rds"
+    )
+  )
 ```
 
+---
 
 ## [4.] Cell type annotation
+
 ### [4.1.] Quantify gene activity
 #### Quantify the activity of each gene by summing the fragments intersecting 
 #### the gene body and promoter (TSS 2 kb upstream region)
 ```{r warning=FALSE}
 # Generate a gene activity matrix  (It may take ~8 mins)
-gene.activities <- GeneActivity(pbmc_atac)
+gene.activities <- Signac::GeneActivity(
+    object = pbmc_atac
+  )
 
 # Add the gene activity matrix to the Seurat object as a new assay
-pbmc_atac[['GeneActivities']] <- CreateAssayObject(counts = gene.activities)
+pbmc_atac[['GeneActivities']] <- Seurat::CreateAssayObject(
+    counts = gene.activities
+  )
 
 # Normalize gene activity matrix
-pbmc_atac <- NormalizeData(
-  object = pbmc_atac,
-  assay = 'GeneActivities',
-  normalization.method = 'LogNormalize',
-  scale.factor = median(pbmc_atac$nCount_GeneActivities)
-)
+pbmc_atac <- Seurat::NormalizeData(
+    object = pbmc_atac,
+    assay = 'GeneActivities',
+    normalization.method = 'LogNormalize',
+    scale.factor = stats::median(pbmc_atac$nCount_GeneActivities)
+  )
 
 # Show gene activity of marker genes on UMAP
-DefaultAssay(pbmc_atac) <- 'GeneActivities'
-FeaturePlot(
-  object = pbmc_atac,
-  features = c('MS4A1', 'CD3D', 'LEF1', 'NKG7', 'TREM1', 'LYZ'),
-  pt.size = 0.1,
-  max.cutoff = 'q95',
-  ncol = 2
-)
+Seurat::DefaultAssay(pbmc_atac) <- 'GeneActivities'
 ```
 
+#### Evaluate by visualization
+```{r warning=FALSE}
+genes <- base::c(
+    'MS4A1', 'CD8A', 'CD4',
+    'NKG7', 'TREM1', 'LYZ'
+  )
+
+Seurat::FeaturePlot(
+    object = pbmc_atac,
+    features = genes,
+    pt.size = 0.1,
+    max.cutoff = 'q95',
+    ncol = 2
+  )
+```
 
 ### [4.2.] Transfer cell-type labels from scRNA-seq data
+### see [4.11.] in "20241014_scRNAseq_analysis.Rmd"
 ```{r warning=FALSE}
 # Import scRNA-seq seurat object  
-pbmc_rna <- readRDS("../output_data/20241015_pbmc_RNA_qc_annotated.rds")
-pbmc_rna <- UpdateSeuratObject(pbmc_rna)
+pbmc_rna <- base::readRDS(
+    file = base::paste0(
+      here::here("output_data"),
+      "/20241015_pbmc_RNA_qc_annotated.rds"
+    )
+  )
+pbmc_rna <- SeuratObject::UpdateSeuratObject(
+    object = pbmc_rna
+  )
 
 # Find anchors between scATAC gene activity and scRNA gene expression
-transfer.anchors <- FindTransferAnchors(
-  reference = pbmc_rna,
-  query = pbmc_atac,
-  reduction = 'cca'
-)
+transfer.anchors <- Seurat::FindTransferAnchors(
+    reference = pbmc_rna,
+    query = pbmc_atac,
+    reduction = 'cca'
+  )
 
 # Transfer cell-type labels from scRNA-seq to scATAC-seq basing on anchors
-predicted.labels <- TransferData(
-  anchorset = transfer.anchors,
-  refdata = pbmc_rna$predicted.id,
-  weight.reduction = pbmc_atac[['lsi']],
-  dims = 2:30 # Exclude the first LSI component
-)
-pbmc_atac <- AddMetaData(object = pbmc_atac, metadata = predicted.labels)
+predicted.labels <- Seurat::TransferData(
+    anchorset = transfer.anchors,
+    refdata = pbmc_rna$predicted.id,
+    weight.reduction = pbmc_atac[['lsi']],
+    dims = 2:30 # Exclude the first LSI component
+  )
+pbmc_atac <- SeuratObject::AddMetaData(
+    object = pbmc_atac,
+    metadata = predicted.labels
+  )
 
 # Since we are using a scRNA+ATAC multiome dataset, we can determine the real 
 # correspondence between scRNA and scATAC cells based on their barcodes. 
-# Therefore, we project the cell types from scRNA-seq to scATAC-seq according 
+# Therefore, we transfer the cell types from scRNA-seq to scATAC-seq according 
 # to real correspondence to assess the performance of the transfer algorithm.
 pbmc_atac@meta.data[,"real.labels"] <- NA
-cell.intersected = intersect(colnames(pbmc_atac),colnames(pbmc_rna))
-pbmc_atac@meta.data[cell.intersected,"real.labels"] <- 
-  pbmc_rna@meta.data[cell.intersected,
-                     "predicted.id"]
+cell.intersected = base::intersect(
+    base::colnames(pbmc_atac),
+    base::colnames(pbmc_rna)
+  )
+pbmc_atac@meta.data[cell.intersected,"real.labels"] <- pbmc_rna@meta.data[cell.intersected,"predicted.id"]
+pbmc_atac@meta.data[,base::c("predicted.id","real.labels")]
 ```
-
 
 ### [4.3.] Visualize cell type annotation
 ```{r}
-plot1 <- DimPlot(
-  object = pbmc_rna,
-  group.by = 'predicted.id',
-  label = TRUE,
-  repel = TRUE) + 
+Seurat::DimPlot(
+      object = pbmc_rna,
+      group.by = 'predicted.id',
+      label = TRUE,
+      repel = TRUE
+    ) + 
   NoLegend() + 
   ggtitle('scRNA-seq')
-plot1
 
-plot2 <- DimPlot(
-  object = pbmc_atac,
-  group.by = 'predicted.id',
-  label = TRUE,
-  repel = TRUE) + NoLegend() + ggtitle('scATAC-seq, predicted labels')
-plot2
+Seurat::DimPlot(
+      object = pbmc_atac,
+      group.by = 'predicted.id',
+      label = TRUE,
+      repel = TRUE
+    ) +
+  NoLegend() +
+  ggtitle('scATAC-seq, predicted labels')
 
-plot3 <- DimPlot(
-  object = pbmc_atac,
-  group.by = 'real.labels',
-  label = TRUE,
-  repel = TRUE) + NoLegend() + ggtitle('scATAC-seq, real labels')
-plot3
+Seurat::DimPlot(
+      object = pbmc_atac,
+      group.by = 'real.labels',
+      label = TRUE,
+      repel = TRUE
+    ) +
+  NoLegend() +
+  ggtitle('scATAC-seq, real labels')
 ```
 
 ### [4.4.] Peak calling for each cell type
-#### Cell Ranger aggregates all cell types together for peak calling, 
+
+#### Cellranger aggregates all cell types together for peak calling, 
 #### potentially overlooking cell-type specific peaks in rare cell type, 
 #### such as pDCs. This oversight might affect the performance of differential
 #### accessibility analysis.  We recommend  calling peaks for each cell type 
 #### (see https://stuartlab.org/signac/articles/peak_calling for more 
 #### information). However, this process requires installing python package 
 #### macs2 and may take hours to compute. Therefore, we will not perform this 
-#### step in today's course.
+#### step as part of this course.
 
-
+---
 
 ## [5.] Differential accessibility analysis
+
 ### [5.1.] Identify differentially accessible peaks between cell types
 ```{r}
-Idents(pbmc_atac) <- pbmc_atac$predicted.id
-DefaultAssay(pbmc_atac) <- 'peaks'
-da_peaks <- FindMarkers(
-  object = pbmc_atac,
-  ident.1 = "CD4 Naive",
-  ident.2 = "CD14+ Monocytes",
-  test.use = 'wilcox', # Wilcoxon Rank Sum test
-  min.pct = 0.1 # peaks detected in 10% cells in either of the two populations
-)
-head(da_peaks)
+SeuratObject::Idents(pbmc_atac) <- pbmc_atac$predicted.id
+SeuratObject::DefaultAssay(pbmc_atac) <- 'peaks'
+da_peaks <- Seurat::FindMarkers(
+    object = pbmc_atac,
+    ident.1 = "CD4 Naive",
+    ident.2 = "CD14+ Monocytes",
+    test.use = 'wilcox', # Wilcoxon Rank Sum test
+    min.pct = 0.1 # peaks detected in 10% cells in either of the two populations
+  )
+utils::head(da_peaks)
 ```
 
 ### [5.2.] Visualize differential peak
 ```{r}
 # Show peak accessibility using violin plot
-plot1 <- VlnPlot(
-  object = pbmc_atac,
-  features = rownames(da_peaks)[1], # Specify peak name
-  pt.size = 0.1,
-  idents = c("CD4 Naive", "CD14+ Monocytes")
-)
-plot1
+Seurat::VlnPlot(
+    object = pbmc_atac,
+    features = base::rownames(da_peaks)[1], # Specify peak name (example)
+    pt.size = 0.1,
+    idents = base::c("CD4 Naive", "CD14+ Monocytes")
+  )
 
 # Show peak accessibility on UMAP
-plot2 <- FeaturePlot(
-  object = pbmc_atac,
-  features = rownames(da_peaks)[1],  # Specify peak name
-  pt.size = 0.1
-)
-plot2
+Seurat::FeaturePlot(
+    object = pbmc_atac,
+    features = base::rownames(da_peaks)[1],  # Specify peak name (example)
+    pt.size = 0.1
+  )
 ```
 
 ### [5.3.] Annotate differential peaks to closest genes
 ```{r}
-# Selecte differential peaks, log2(fold change) > 3
-open_cd4naive <- rownames(da_peaks[da_peaks$avg_log2FC > 3, ])
-open_cd14mono <- rownames(da_peaks[da_peaks$avg_log2FC < -3, ])
+# Selecte differential peaks as defined by log2(fold change) > 3
+open_cd4naive <- da_peaks %>%
+  dplyr::filter(avg_log2FC > 3) %>%
+  base::rownames()
+open_cd14mono <- da_peaks %>%
+  dplyr::filter(avg_log2FC < -3) %>% 
+  base::rownames()
 
 # Find closest genes
-closest_genes_cd4naive <- ClosestFeature(pbmc_atac, regions = open_cd4naive)
-closest_genes_cd14mono <- ClosestFeature(pbmc_atac, regions = open_cd14mono)
+closest_genes_cd4naive <- Signac::ClosestFeature(
+    object = pbmc_atac,
+    regions = open_cd4naive
+  )
+closest_genes_cd14mono <- Signac::ClosestFeature(
+    object = pbmc_atac,
+    regions = open_cd14mono
+  )
 
 # Show differential peaks and closest genes
-head(closest_genes_cd4naive)
-head(closest_genes_cd14mono)
+utils::head(closest_genes_cd4naive)
+utils::head(closest_genes_cd14mono)
 ```
 
 ### [5.4.] Visualize genomic region
 ```{r}
 # Select highlight regions
-regions_highlight <- subsetByOverlaps(StringToGRanges(open_cd14mono), 
-                                      LookupGeneCoords(pbmc_atac, "LYZ"))
+regions_highlight <- IRanges::subsetByOverlaps(
+    x = Signac::StringToGRanges(open_cd14mono),
+    ranges = Signac::LookupGeneCoords(pbmc_atac, "LYZ")
+  )
 
 # Plot coverage
-CoveragePlot(
-  object = pbmc_atac,
-  region = "LYZ",
-  region.highlight = regions_highlight,
-  extend.upstream = 1000,
-  extend.downstream = 5000
-)
+Signac::CoveragePlot(
+    object = pbmc_atac,
+    region = "LYZ",
+    region.highlight = regions_highlight,
+    extend.upstream = 1000,
+    extend.downstream = 5000
+  )
 ```
 
+---
 
 ## [6.] Motif analysis
+
 ### [6.1.] Load Motif information from JASPAR database
 ```{r warning=FALSE}
 # Extract TF motif from JASPAR database
-pfm <- getMatrixSet(
-  x = JASPAR2020,
-  opts = list(collection = "CORE", 
-              tax_group = 'vertebrates', 
-              all_versions = FALSE)
-)
+pfm <- TFBSTools::getMatrixSet(
+    x = JASPAR2020,
+    opts = base::list(
+      collection = "CORE", 
+      tax_group = 'vertebrates', 
+      all_versions = FALSE
+    )
+  )
 
-# Add motif information to the seurat object
-pbmc_atac <- AddMotifs(
-  object = pbmc_atac,
-  genome = BSgenome.Hsapiens.UCSC.hg38,
-  pfm = pfm
-)
+# Add motif information to the Seurat object
+pbmc_atac <- Signac::AddMotifs(
+    object = pbmc_atac,
+    genome = BSgenome.Hsapiens.UCSC.hg38,
+    pfm = pfm
+  )
 ```
 
 ### [6.2.] Identify motifs enriched in differential peaks
 ```{r}
 # find enriched motifs in differential Peaks
-DefaultAssay(pbmc_atac) <- 'peaks'
-enriched.motifs <- FindMotifs(
-  object = pbmc_atac,
-  features = open_cd4naive # differential peaks identified in [5.3.]
-)
+Seurat::DefaultAssay(pbmc_atac) <- 'peaks'
+enriched.motifs <- Signac::FindMotifs(
+    object = pbmc_atac,
+    features = open_cd4naive # Differential peaks identified in [5.3.]
+  )
 
 # Plot enriched Motifs
-MotifPlot(
-  object = pbmc_atac,
-  motifs = head(rownames(enriched.motifs))
-)
+Signac::MotifPlot(
+    object = pbmc_atac,
+    motifs = utils::head(base::rownames(enriched.motifs))
+  )
 ```
 
 ### [6.3.] Computing motif activities with ChromVAR
@@ -279,8 +338,10 @@ MotifPlot(
 )
 ```
 
+---
 
 ## [7.] scATAC+scRNA multiome analysis: Linking peaks to genes
+
 ### [7.1.] Add scRNA-seq data
 ```{r warning=FALSE}
 # Import count matrix
@@ -332,23 +393,26 @@ p <- CoveragePlot(
 p
 ```
 
-## [8.] Save seurat object
+---
+
+## [8.] Save Seurat object
 ```{r}
 base::saveRDS(
-    object = pbmc_atac,
-    file = "../output_data/pbmc_ATAC_advanced.rds"
+  object = pbmc_atac,
+  file = base::paste0(
+      here::here("output_data/"),
+      "pbmc_ATAC_advanced.rds"
+    )
   )
 ```
 
+---
 
 ## [9.] Additional vignettes for further reading & analysis
+
 ### [9.1.] Trajectory analysis of scATAC data
 #### https://stuartlab.org/signac/articles/monocle
 ### [9.2.] Transcription factor footprinting
 #### https://stuartlab.org/signac/articles/footprint
 ### [9.3.] Co-accessible networks
 #### https://stuartlab.org/signac/articles/cicero
-
-
-
-```
