@@ -20,9 +20,8 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ### [0.0.] Install necessary packages
 ```{r}
-install.packages('ggseqlogo')
+utils::install.packages('ggseqlogo')
 ```
-
 
 ### [0.1.] Load necessary packages
 ```{r message=FALSE, warning=FALSE}
@@ -284,7 +283,7 @@ pbmc_atac <- Signac::AddMotifs(
   )
 ```
 
-### [6.2.] Identify motifs enriched in differential peaks
+### [6.2.] Identify enriched motifs in differential peaks
 ```{r}
 # find enriched motifs in differential Peaks
 Seurat::DefaultAssay(pbmc_atac) <- 'peaks'
@@ -303,39 +302,46 @@ Signac::MotifPlot(
 ### [6.3.] Computing motif activities with ChromVAR
 ```{r warning=FALSE}
 # Run ChromVAR
-pbmc_atac <- RunChromVAR(object = pbmc_atac, 
-                         genome = BSgenome.Hsapiens.UCSC.hg38)
-DefaultAssay(pbmc_atac) <- 'chromvar'
+pbmc_atac <- Signac::RunChromVAR(
+    object = pbmc_atac,
+    genome = BSgenome.Hsapiens.UCSC.hg38
+  )
+Seurat::DefaultAssay(pbmc_atac) <- 'chromvar'
 
 # Visualize motif activity of Mef2c on UMAP
-p1 <- DimPlot(pbmc_atac, label = TRUE, pt.size = 0.1) + NoLegend()
-p2 <- FeaturePlot(
-  object = pbmc_atac,
-  features = "MA0497.1", # Mef2c
-  min.cutoff = 'q10',
-  max.cutoff = 'q90',
-  pt.size = 0.1
-)
+p1 <- Seurat::DimPlot(
+      pbmc_atac,
+      label = TRUE,
+      pt.size = 0.1
+    ) +
+  NoLegend()
+p2 <- Seurat::FeaturePlot(
+    object = pbmc_atac,
+    features = "MA0497.1", # Mef2c
+    min.cutoff = 'q10',
+    max.cutoff = 'q90',
+    pt.size = 0.1
+  ) 
 p1 + p2
 ```
 
 ### [6.4.] Identify differentially activity of motifs between cell types
 ```{r}
-differential.activity <- FindMarkers(
-  object = pbmc_atac,
-  ident.1 = "CD4 Naive",
-  ident.2 = "CD14+ Monocytes",
-  only.pos = TRUE,
-  mean.fxn = rowMeans,
-  fc.name = "avg_diff"
-)
+diff.activity <- Seurat::FindMarkers(
+    object = pbmc_atac,
+    ident.1 = "CD4 Naive",
+    ident.2 = "CD14+ Monocytes",
+    only.pos = TRUE,
+    mean.fxn = rowMeans,
+    fc.name = "avg_diff"
+  )
 
-# Visualize motifs with differentially activity
-MotifPlot(
-  object = pbmc_atac,
-  motifs = head(rownames(differential.activity)),
-  assay = 'peaks'
-)
+# Visualize motifs with differential activity
+Signac::MotifPlot(
+    object = pbmc_atac,
+    motifs = utils::head(base::rownames(diff.activity)),
+    assay = 'peaks'
+  )
 ```
 
 ---
@@ -345,52 +351,67 @@ MotifPlot(
 ### [7.1.] Add scRNA-seq data
 ```{r warning=FALSE}
 # Import count matrix
-pbmc_count_data <- Read10X("../input_data/filtered_feature_bc_matrix/")
+pbmc_count_data <- Seurat::Read10X(
+    data.dir = base::paste0(
+      here::here("input_data/"),
+      "filtered_feature_bc_matrix/"
+    )
+  )
 
 # Create import count matrix
-pbmc_atac[["RNA"]] <- CreateAssayObject(pbmc_count_data$`Gene Expression`[,colnames(pbmc_atac)],
-                                        min.cells = 3)
+pbmc_atac[["RNA"]] <- SeuratObject::CreateAssayObject(
+    counts = pbmc_count_data$`Gene Expression`[,base::colnames(pbmc_atac)],
+    min.cells = 3
+  )
+
 # Normalization and PCA
-DefaultAssay(pbmc_atac) <- "RNA"
-pbmc_atac <- SCTransform(pbmc_atac)
-pbmc_atac <- RunPCA(pbmc_atac)
+Seurat::DefaultAssay(pbmc_atac) <- "RNA"
+pbmc_atac <- Seurat::SCTransform(pbmc_atac)
+pbmc_atac <- Seurat::RunPCA(pbmc_atac)
 ```
 
 ### [7.2.] Link peaks to genes
 ```{r warning=FALSE}
 # Compute the GC content for each peak
-DefaultAssay(pbmc_atac) <- "peaks"
-pbmc_atac <- RegionStats(pbmc_atac, 
-                         genome = BSgenome.Hsapiens.UCSC.hg38)
+Seurat::DefaultAssay(pbmc_atac) <- "peaks"
+pbmc_atac <- Signac::RegionStats(
+    object = pbmc_atac,
+    genome = BSgenome.Hsapiens.UCSC.hg38
+  )
+
+genes <- base::c("MS4A1") # Insert genes of interest
 
 # Link peaks to genes
-pbmc_atac <- LinkPeaks(
-  object = pbmc_atac,
-  peak.assay = "peaks",
-  expression.assay = "SCT",
-  genes.use = c("MS4A1") # Replace it with genes the you are interested in :)
-)
+pbmc_atac <- Signac::LinkPeaks(
+    object = pbmc_atac,
+    peak.assay = "peaks",
+    expression.assay = "SCT",
+    genes.use = genes
+  )
 ```
 
 ### [7.3.] Visualize peak-gene links
 ```{r}
 # Set cell types for plotting
-idents.plot <- c("pre-B cell", "B cell progenitor",
-                 "CD14+ Monocytes", "CD16+ Monocytes", 
-                 "CD8 effector", "CD8 Naive")
+idents.plot <- base::c(
+    "pre-B cell", "B cell progenitor",
+    "CD14+ Monocytes", "CD16+ Monocytes", 
+    "CD8 effector", "CD8 Naive"
+  )
 pbmc_atac <- SortIdents(pbmc_atac)
 
+genes <- base::c("MS4A1") # Insert genes of interest
+
 # Plot peak-gene links for MS4A1
-p <- CoveragePlot(
-  object = pbmc_atac,
-  region = "MS4A1", # Replace it with genes the you are interested in :)
-  features = "MS4A1", # Replace it with genes the you are interested in :)
-  expression.assay = "SCT",
-  idents = idents.plot,
-  extend.upstream = 500,
-  extend.downstream = 10000
-)
-p
+Signac::CoveragePlot(
+    object = pbmc_atac,
+    region = genes,
+    features = genes,
+    expression.assay = "SCT",
+    idents = idents.plot,
+    extend.upstream = 500,
+    extend.downstream = 10000
+  )
 ```
 
 ---
