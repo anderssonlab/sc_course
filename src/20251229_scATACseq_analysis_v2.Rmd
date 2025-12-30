@@ -181,6 +181,32 @@ pbmc_atac$blacklist_ratio <- Signac::FractionCountsInRegion(
 #### determine the appropriate thresholds. The primary objective is to 
 #### exclude outliers while retaining the majority of cells.
 ```{r}
+# Plot nucleosome banding pattern
+Signac::FragmentHistogram(
+    object = pbmc_atac,
+    assay = 'peaks'
+  )
+Signac::DensityScatter(
+    object = pbmc_atac,
+    x = 'nCount_peaks',
+    y = 'TSS.enrichment',
+    log_x = TRUE,
+    quantiles = TRUE
+  )
+# Seurat::VlnPlot(
+#     object = pbmc_atac,
+#     assay = 'peaks',
+#     features = base::c(
+#         'nCount_peaks', 'TSS.enrichment', 'blacklist_ratio',
+#         'nucleosome_signal', 'pct_reads_in_peaks'
+#       ),
+#     pt.size = 0.1,
+#     ncol = 5
+#   )
+```
+
+#### Plot QC metrics individually
+```{r}
 # Plot distribution of nucleosome signal
 graphics::hist(
     x = pbmc_atac$nucleosome_signal,
@@ -249,7 +275,7 @@ pbmc_atac <- base::subset(
     x = pbmc_atac,
     subset = nucleosome_signal < 1.5 &
       TSS.enrichment > 4 &
-      nCount_peaks > 10000 &
+      nCount_peaks > 10000 & # Only non-standard value
       nCount_peaks < 100000 &
       pct_reads_in_peaks > 40 &
       blacklist_ratio < 0.01 
@@ -261,8 +287,11 @@ pbmc_atac <- base::subset(
 ## [3.] Dimensionality reduction and clustering
 
 ### [3.1.]  Normalization and linear dimensional reduction
+#### Steps adjusted from scRNAseq to scATACseq to account for the low dynamic range of scATACseq data
 ```{r}
 # Perform term frequency-inverse document frequency (TF-IDF) normalization
+# Normalizes 1) across cells to mitigate sequencing depth differences between cells &
+# across 2) peaks to boosf importance of rare peaks
 pbmc_atac <- Signac::RunTFIDF(
     object = pbmc_atac
   )
@@ -273,7 +302,8 @@ pbmc_atac <- Signac::FindTopFeatures(
     min.cutoff = 'q0'  # Use all peaks here
   )
 
-# Perform singular value decomposition (SVD) for linear dimensional reduction
+# Dimensionality reduction via singular value decomposition (SVD) based on the TF-IDF matrix
+# Resembles in essence the PCA approach for scRNAseq data
 pbmc_atac <- Signac::RunSVD(
     object = pbmc_atac
   )
@@ -372,6 +402,8 @@ Seurat::FeaturePlot(
     ncol = 2
   )
 ```
+
+##<<bookmark>>
 
 ### [4.2.] Transfer cell-type labels from scRNA-seq data
 ### see [4.11.] in "20241014_scRNAseq_analysis.Rmd"
