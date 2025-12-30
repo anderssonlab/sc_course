@@ -12,6 +12,20 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## [0.] Prerequisites
 
+### [0.0.] Install necessary packages
+```{r eval=FALSE}
+BiocManager::install("Rsamtools")
+BiocManager::install("EnsDb.Hsapiens.v86")
+BiocManager::install("biovizBase")
+BiocManager::install("BSgenome.Hsapiens.UCSC.hg38")
+# utils::install.packages("TFMPvalue") # Incompatible with current R version
+devtools::install_github("ge11232002/TFMPvalue")
+BiocManager::install("TFBSTools")
+BiocManager::install("JASPAR2020")
+# utils::install.packages("Signac")
+remotes::install_version(package = 'Signac', version = package_version('1.13.0'))
+```
+
 ### [0.1.] Load necessary packages
 ```{r message=FALSE, warning=FALSE}
 base::library(Signac) # scATAC-seq analysis tools
@@ -74,7 +88,7 @@ pbmc_metadata[1:5,]
 
 ### [1.4.] Create Seurat/Signac object
 ```{r warning=FALSE}
-# Create chromatinAssay object
+# Create ChromatinAssay object
 chrom_assay <- Signac::CreateChromatinAssay(
     counts = pbmc_count_data$Peaks, ## Specify scATAC-seq
     sep = base::c(":", "-"),
@@ -83,19 +97,20 @@ chrom_assay <- Signac::CreateChromatinAssay(
     min.features = 200 # include cells detecting more than 200 peaks
   )
 
-# Create Seurat object from chromatinAssay object and integrate metadata
+# Create Seurat object from ChromatinAssay object and integrate metadata
 pbmc_atac <- SeuratObject::CreateSeuratObject(
     counts = chrom_assay,
     assay = "peaks", # assay name
     meta.data = pbmc_metadata
   )
 
-# Remove peaks in non-standard chromosomes
+# Remove peaks in non-standard chromosomes (e.g., genom scaffolds, contigs)
 peaks.keep <- base::as.character(GenomeInfoDb::seqnames(GenomicRanges::granges(pbmc_atac))) %in%
   GenomeInfoDb::standardChromosomes(GenomicRanges::granges(pbmc_atac))
 pbmc_atac <- pbmc_atac[base::as.vector(peaks.keep),]
 
-# Add gene annotation information
+# Add gene annotation information to the Seurat/Signac object for the corresponding genome
+# Peaks are not annotated yet, only information for all genes added to the object for later
 annotation <- Signac::GetGRangesFromEnsDb(
     ensdb = EnsDb.Hsapiens.v86
   )
@@ -108,6 +123,7 @@ Signac::Annotation(pbmc_atac) <- annotation
 ### [1.5.] Data structure of Seurat/Signac object
 #### See https://stuartlab.org/signac/articles/data_structures for more 
 #### information about data structures and object interaction
+#### ChromatinAssay object is specialised to include motif information, gene annotation & genome information for open chromatin data
 ```{r}
 # Show peak and cell number
 pbmc_atac
@@ -127,14 +143,18 @@ Signac::Annotation(pbmc_atac)
 ## [2.] Quality control (QC)
 
 #### We follow the Signac pipeline by using the following QC metrics:
-#### i. Nucleosome signal: 
+#### i. Nucleosome banding signal (per cell): 
+####    Lengths of all fragments derived from DNA wrapped around histone octamers,
 ####    Ratio of mononucleosomal to nucleosome-free fragments
-#### ii. Transcriptional start site (TSS) enrichment score: 
-####     Ratio of fragments centered at the TSS to fragments in TSS-flanking 
-####     regions (see https://www.encodeproject.org/data-standards/terms/)
-#### iii. Total number of fragments in peaks
-#### iv. Fraction of fragments in peaks
+#### ii. Transcriptional start site (TSS) enrichment score (per cell): 
+####     Ratio of fragments centered at TSSs compared to fragments flanking TSSs
+####    (see https://www.encodeproject.org/data-standards/terms/)
+#### iii. Total number of fragments in peaks (per cell)
+####      Indicates sequencing depth & complexity.
+#### iv. Fraction of fragments in peaks (FRIP) (per cell)
+####      Cells with low FRIP indicate artifacts, debris or low-quality peaks
 #### v. Ratio reads in genomic blacklist regions
+####    Reads mapped to these regions are likely represent technical artifacts
 
 ### [2.1.] Compute QC metrics
 ```{r}
@@ -162,42 +182,64 @@ pbmc_atac$blacklist_ratio <- Signac::FractionCountsInRegion(
 #### exclude outliers while retaining the majority of cells.
 ```{r}
 # Plot distribution of nucleosome signal
-hist(pbmc_atac$nucleosome_signal,
-     breaks = 20,
-     main = "nucleosome_signal")
+graphics::hist(
+    x = pbmc_atac$nucleosome_signal,
+    breaks = 20,
+    main = "nucleosome_signal"
+  )
 # Indicate threshold
-abline(v = 1.5, # threshold
-       col="red")
+graphics::abline(
+    v = 1.5, # threshold
+    col="red"
+  )
 
 # Plot distribution of TSS enrichment score
-hist(pbmc_atac$TSS.enrichment,
-     main = "TSS.enrichment")
+graphics::hist(
+    x = pbmc_atac$TSS.enrichment,
+    main = "TSS.enrichment"
+  )
 # Indicate threshold
-abline(v = 4, # threshold
-       col="red")
+graphics::abline(
+    v = 4, # threshold
+    col = "red"
+  )
 
 # Plot distribution of total number of fragments in peaks
-hist(pbmc_atac$nCount_peaks,
-     main = "nCount_peaks")
+graphics::hist(
+    x = pbmc_atac$nCount_peaks,
+    main = "nCount_peaks"
+  )
 # Indicate threshold
-abline(v = 10000, # threshold
-       col="red")
-abline(v = 100000, # threshold
-       col="red")
+graphics::abline(
+    v = 10000, # threshold
+    col = "red"
+  )
+graphics::abline(
+    v = 100000, # threshold
+    col = "red"
+  )
 
 # Plot distribution of fraction of fragments in peaks
-hist(pbmc_atac$pct_reads_in_peaks,
-     main = "pct_reads_in_peaks")
+graphics::hist(
+    x = pbmc_atac$pct_reads_in_peaks,
+    main = "pct_reads_in_peaks"
+  )
 # Indicate threshold
-abline(v = 40, # threshold
-       col="red")
+graphics::abline(
+    v = 40, # threshold
+    col="red"
+  )
 
 # Plot distribution of ratio reads in genomic blacklist regions
-hist(pbmc_atac$blacklist_ratio,
-     main = "blacklist_ratio")
+graphics::hist(
+    x = pbmc_atac$blacklist_ratio,
+    main = "blacklist_ratio"
+  )
 # Indicate threshold
-abline(v = 0.01, # threshold
-       col="red")
+graphics::abline(
+    v = 0.01, # threshold
+    col = "red"
+  )
 ```
 
 ### [2.3.] Filter high quality cells
@@ -226,7 +268,7 @@ pbmc_atac <- Signac::RunTFIDF(
   )
 
 # Feature selection
-pbmc_atac <- Signac::FindTopFeatures(
+pbmc_atac <- Signac::FindTopFeatures( 
     object = pbmc_atac,
     min.cutoff = 'q0'  # Use all peaks here
   )
@@ -275,7 +317,7 @@ Seurat::DimPlot(
 ```
 
 ### [3.4.] Save Seurat object
-```{r}
+```{r eval=FALSE}
 base::saveRDS(
   object = pbmc_atac,
   file = base::paste0(
@@ -655,7 +697,7 @@ Signac::CoveragePlot(
 ---
 
 ## [8.] Save Seurat object
-```{r}
+```{r eval=FALSE}
 base::saveRDS(
   object = pbmc_atac,
   file = base::paste0(
