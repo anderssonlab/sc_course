@@ -288,6 +288,7 @@ pbmc_atac <- base::subset(
 
 ### [3.1.]  Normalization and linear dimensional reduction
 #### Steps adjusted from scRNAseq to scATACseq to account for the low dynamic range of scATACseq data
+#### In combination TF-IDF & SVD are known as latent semantic indexing (LSI) to embed cells in low-dimensional latent space.
 ```{r}
 # Perform term frequency-inverse document frequency (TF-IDF) normalization
 # Normalizes 1) across cells to mitigate sequencing depth differences between cells &
@@ -307,14 +308,19 @@ pbmc_atac <- Signac::FindTopFeatures(
 pbmc_atac <- Signac::RunSVD(
     object = pbmc_atac
   )
-
-# Assess correlation between each LSI component and sequencing depth 
-Signac::DepthCor(object = pbmc_atac, n = 30) 
-# The first LSI component captures sequencing depth (technical variation)
-# rather than biological variation.
 ```
 
-### [3.2.] Non-linear dimension reduction with UMAP
+### Assess correlation between each LSI component and sequencing depth 
+### The first LSI component captures sequencing depth (technical variation), not biological variation.
+### Shown here as strong anti-correlation between sequencing depth and LSI component across all cells.
+```{r}
+Signac::DepthCor(
+    object = pbmc_atac,
+    n = 30
+  )
+```
+
+### [3.2.] Non-linear dimensionality reduction with UMAP
 ```{r message=FALSE, warning=FALSE}
 pbmc_atac <- Seurat::RunUMAP(
     object = pbmc_atac,
@@ -323,7 +329,8 @@ pbmc_atac <- Seurat::RunUMAP(
   )
 ```
 
-### [3.3.] Clustering
+### [3.3.] Graph-based clustering
+#### Louvain algorithm used for clustering approach.
 ```{r}
 # Calculate nearest neighbors
 pbmc_atac <- Seurat::FindNeighbors(
@@ -351,8 +358,8 @@ Seurat::DimPlot(
 base::saveRDS(
   object = pbmc_atac,
   file = base::paste0(
-      here::here("output_data"),
-      "/pbmc_ATAC.rds"
+      here::here("output_data/"),
+      "pbmc_ATAC.rds"
     )
   )
 ```
@@ -362,8 +369,11 @@ base::saveRDS(
 ## [4.] Cell type annotation
 
 ### [4.1.] Quantify gene activity
-#### Quantify the activity of each gene by summing the fragments intersecting 
-#### the gene body and promoter (TSS 2 kb upstream region)
+#### To help interpreting scATACseq clusters based on the activity of non-coding
+#### gene regulatory regions, we assess the overall activity of all open chromatin
+#### regions overlapping the genes across the genome by:
+#### Quantifying the activity of each gene by summing the fragments intersecting 
+#### the gene body and promoter (TSS 2 kb upstream region).
 ```{r warning=FALSE}
 # Generate a gene activity matrix  (It may take ~8 mins)
 gene.activities <- Signac::GeneActivity(
@@ -387,11 +397,10 @@ pbmc_atac <- Seurat::NormalizeData(
 Seurat::DefaultAssay(pbmc_atac) <- 'GeneActivities'
 ```
 
-#### Evaluate by visualization
+#### Plot chromatin activities for our 4 immune effector genes 
 ```{r warning=FALSE}
 genes <- base::c(
-    'MS4A1', 'CD8A', 'CD4',
-    'NKG7', 'TREM1', 'LYZ'
+    'CD8A', 'CD4', 'IL1A', 'IL1B'
   )
 
 Seurat::FeaturePlot(
@@ -403,16 +412,16 @@ Seurat::FeaturePlot(
   )
 ```
 
-##<<bookmark>>
-
-### [4.2.] Transfer cell-type labels from scRNA-seq data
-### see [4.11.] in "20241014_scRNAseq_analysis.Rmd"
+### [4.2.] Transfer cell-type labels from scRNA-seq data via cross-modality integration
+#### Integration based on correlations between chromatin activities of genes (i.e., scATACseq) & gene expression (i.e., scRNAseq)
+#### Identifies biological states (anchors) matching between both data modalities & provides a matching or classification score.
+#### see [4.11.] in "20241014_scRNAseq_analysis.Rmd" for 'pbmc_qc' dataset
 ```{r warning=FALSE}
 # Import scRNA-seq seurat object  
 pbmc_rna <- base::readRDS(
     file = base::paste0(
       here::here("output_data"),
-      "/20241015_pbmc_RNA_qc_annotated.rds"
+      "/20251230_pbmc_RNA_qc_annotated.rds"
     )
   )
 pbmc_rna <- SeuratObject::UpdateSeuratObject(
@@ -437,11 +446,13 @@ pbmc_atac <- SeuratObject::AddMetaData(
     object = pbmc_atac,
     metadata = predicted.labels
   )
+```
 
-# Since we are using a scRNA+ATAC multiome dataset, we can determine the real 
-# correspondence between scRNA and scATAC cells based on their barcodes. 
-# Therefore, we transfer the cell types from scRNA-seq to scATAC-seq according 
-# to real correspondence to assess the performance of the transfer algorithm.
+#### Since we are using a scRNA+ATAC multiome dataset, we can determine the real 
+#### correspondence between scRNA and scATAC cells based on their barcodes. 
+#### Therefore, we transfer the cell types from scRNA-seq to scATAC-seq according 
+#### to real correspondence to assess the performance of the transfer algorithm.
+```{r warning=FALSE}
 pbmc_atac@meta.data[,"real.labels"] <- NA
 cell.intersected = base::intersect(
     base::colnames(pbmc_atac),
@@ -450,6 +461,20 @@ cell.intersected = base::intersect(
 pbmc_atac@meta.data[cell.intersected,"real.labels"] <- pbmc_rna@meta.data[cell.intersected,"predicted.id"]
 pbmc_atac@meta.data[,base::c("predicted.id","real.labels")]
 ```
+
+#### Evaluate overlap between predicted and real labels
+```{r eval=FALSE}
+pbmc_atac@meta.data %>%
+  dplyr::mutate(
+      ovl = predicted.id == real.labels
+    ) %>%
+  dplyr::group_by(ovl) %>% 
+  dplyr::summarise(count = dplyr::n())
+
+5256 / (593 + 5256 + 3261)
+5256 / (593 + 5256)
+```
+
 
 ### [4.3.] Visualize cell type annotation
 ```{r}
@@ -494,7 +519,7 @@ Seurat::DimPlot(
 
 ---
 
-## [5.] Differential accessibility analysis
+## [5.]  Supplement / Appendix - Differential accessibility analysis
 
 ### [5.1.] Identify differentially accessible peaks between cell types
 ```{r}
@@ -573,7 +598,7 @@ Signac::CoveragePlot(
 
 ---
 
-## [6.] Motif analysis
+## [6.]  Supplement / Appendix - Motif analysis
 
 ### [6.1.] Load Motif information from JASPAR database
 ```{r warning=FALSE}
@@ -658,7 +683,7 @@ Signac::MotifPlot(
 
 ---
 
-## [7.] scATAC+scRNA multiome analysis: Linking peaks to genes
+## [7.]  Supplement / Appendix - scATAC+scRNA multiome analysis: Linking peaks to genes
 
 ### [7.1.] Add scRNA-seq data
 ```{r warning=FALSE}

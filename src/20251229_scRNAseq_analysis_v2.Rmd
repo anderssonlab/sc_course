@@ -1083,32 +1083,6 @@ ggplot2::ggplot(
   )
 ```
 
-### [4.11.] Save & load the "nFeature_RNA"-cleaned and annotated version pbmc_qc
-```{r eval=FALSE}
-base::saveRDS(
-    object = pbmc_qc,
-    file = base::paste0(
-        here::here("output_data/"),
-        base::format(base::Sys.time(),"%Y%m%d"),
-        "_pbmc_RNA_qc_annotated",
-        ".rds"
-      ),
-    compress = TRUE
-  )
-```
-
-```{r eval=FALSE}
-pbmc_qc <- base::list.files(
-      path = here::here("output_data"),
-      full.names = TRUE
-    ) %>%
-  stringr::str_subset("RNA_qc.rds") %>%
-  base::readRDS(
-      file = .
-    )
-utils::str(pbmc_qc)
-```
-
 ---
 
 #### Extra question: Do cluster 7 - 9 consist of doublets or are these biologically meaningful cell types?
@@ -1357,6 +1331,32 @@ ggplot2::ggplot(
       axis.text = element_blank(),
       axis.ticks = element_blank()
     )
+```
+
+### [5.9.] Save & load the "nFeature_RNA"-cleaned and annotated version pbmc_qc
+```{r eval=FALSE}
+base::saveRDS(
+    object = pbmc_qc,
+    file = base::paste0(
+        here::here("output_data/"),
+        base::format(base::Sys.time(),"%Y%m%d"),
+        "_pbmc_RNA_qc_annotated",
+        ".rds"
+      ),
+    compress = TRUE
+  )
+```
+
+```{r eval=FALSE}
+pbmc_qc <- base::list.files(
+      path = here::here("output_data"),
+      full.names = TRUE
+    ) %>%
+  stringr::str_subset("RNA_qc.rds") %>%
+  base::readRDS(
+      file = .
+    )
+utils::str(pbmc_qc)
 ```
 
 ---
