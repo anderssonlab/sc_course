@@ -22,8 +22,11 @@ BiocManager::install("BSgenome.Hsapiens.UCSC.hg38")
 devtools::install_github("ge11232002/TFMPvalue")
 BiocManager::install("TFBSTools")
 BiocManager::install("JASPAR2020")
-# utils::install.packages("Signac")
+BiocManager::install("motifmatchr")
+BiocManager::install("chromVAR")
+# utils::install.packages("Signac") # Incompatible with current R version
 remotes::install_version(package = 'Signac', version = package_version('1.13.0'))
+utils::install.packages("ggseqlogo")
 ```
 
 ### [0.1.] Load necessary packages
@@ -33,6 +36,7 @@ base::library(Seurat) # scRNA-seq analysis tools
 base::library(GenomicRanges) # Process ATAC peak regions
 base::library(TFBSTools) # Transcription factor binding site analysis
 base::library(ggplot2) # Visualization tools
+base::library(ggseqlogo)
 base::library(patchwork) # combined multiple plots
 
 base::library(EnsDb.Hsapiens.v86) # Human gene annotation database
