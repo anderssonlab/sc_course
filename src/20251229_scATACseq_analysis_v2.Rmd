@@ -27,6 +27,7 @@ BiocManager::install("chromVAR")
 # utils::install.packages("Signac") # Incompatible with current R version
 remotes::install_version(package = 'Signac', version = package_version('1.13.0'))
 utils::install.packages("ggseqlogo")
+utils::install.packages("ggforce")
 ```
 
 ### [0.1.] Load necessary packages
@@ -739,7 +740,7 @@ idents.plot <- base::c(
     "CD14+ Monocytes", "CD16+ Monocytes", 
     "CD8 effector", "CD8 Naive"
   )
-pbmc_atac <- SortIdents(pbmc_atac)
+# pbmc_atac <- SortIdents(pbmc_atac) # Only in Signac >= 1.16.0 
 
 genes <- base::c("MS4A1") # Insert genes of interest
 
