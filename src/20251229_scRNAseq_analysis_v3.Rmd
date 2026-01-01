@@ -67,6 +67,8 @@ dir <- base::paste0(
 base::dir.exists(paths = dir)
 ```
 
+# <flag>
+
 ### [1.1.] Read in data as sparse matrices
 #### Cellranger provides 'barcodes', 'features', 'matrix' output files
 #### Data read in as dgCMatrices.
@@ -501,7 +503,7 @@ Seurat::DimPlot(
 ```
 
 ---
-
+# <flag>
 ### [3.8.] Save & load data Seurat object 'pbmc_rna'
 ```{r eval=FALSE}
 base::saveRDS(

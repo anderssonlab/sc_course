@@ -58,16 +58,16 @@ base::library(JASPAR2020) # Transcription factor motif database
 #### for more information of 10x Genomics Cell Ranger output
 ```{r}
 count_matrix_dir <- base::paste0(
-    here::here("input_data"),
-    "/filtered_feature_bc_matrix/"
+    here::here("input_data/"),
+    "filtered_feature_bc_matrix/"
   )
 fragments_path <- base::paste0(
-    here::here("input_data"),
-    "/10k_PBMC_Multiome_nextgem_Chromium_X_atac_fragments.tsv.gz"
+    here::here("input_data/"),
+    "10k_PBMC_Multiome_nextgem_Chromium_X_atac_fragments.tsv.gz"
   )
 metadata_path <- base::paste0(
-    here::here("input_data"),
-    "/10k_PBMC_Multiome_nextgem_Chromium_X_per_barcode_metrics.csv"
+    here::here("input_data/"),
+    "10k_PBMC_Multiome_nextgem_Chromium_X_per_barcode_metrics.csv"
   )
 ```
 
