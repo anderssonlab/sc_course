@@ -15,13 +15,17 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## [0.0.] Install necessary packages
 ```{r eval=FALSE}
+utils::install.packages("here")
 utils::install.packages("tidyverse", force = TRUE)
+utils::install.packages("scales", force = TRUE)
+utils::install.packages("ggplot2", force = TRUE)
 utils::install.packages("Seurat", force = TRUE)
 utils::install.packages("enrichR")
 devtools::install_github('immunogenomics/presto')
-utils::install.packages("here")
 utils::install.packages("assertthat")
+```
 
+```{r eval=FALSE}
 utils::install.packages("ape") # used for BuildClusterTree in [3.5.]
 utils::install.packages("tidygraph")
 utils::install.packages("ggraph")
@@ -66,8 +70,6 @@ dir <- base::paste0(
   )
 base::dir.exists(paths = dir)
 ```
-
-# <flag>
 
 ### [1.1.] Read in data as sparse matrices
 #### Cellranger provides 'barcodes', 'features', 'matrix' output files
@@ -503,7 +505,6 @@ Seurat::DimPlot(
 ```
 
 ---
-# <flag>
 ### [3.8.] Save & load data Seurat object 'pbmc_rna'
 ```{r eval=FALSE}
 base::saveRDS(
