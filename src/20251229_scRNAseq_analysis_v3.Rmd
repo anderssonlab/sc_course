@@ -319,21 +319,22 @@ base::print(
     dims = 1:3,
     nfeatures = 10
   )
-# Seurat::VizDimLoadings(
-#     object = pbmc_rna,
-#     dims = 1:3,
-#     reduction = "pca",
-#     ncol = 3,
-#     nfeatures = 10
-#   )
-Seurat::DimPlot(
-      object = pbmc_rna,
-      reduction = "pca",
-      dims = 1:2
+
+pbmc_rna@reductions$pca@cell.embeddings %>%
+  tibble::as_tibble() %>% 
+  dplyr::select("PC_1","PC_2") %>%
+  ggplot2::ggplot(
+      data = .,
+      mapping = aes(
+        x = PC_1,
+        y = PC_2
+      )
+    ) +
+  geom_point(
+      size = 0.1
     ) +
   theme_bw() +
   theme(
-      legend.position = "none",
       aspect.ratio = 1
     )
 ```
@@ -439,14 +440,29 @@ pbmc_rna <- Seurat::RunUMAP(
 ### [3.4.] Visualize UMAP dimension reduction
 #### UMAP preserves the local distances in favor of global relationships.
 ```{r}
-Seurat::DimPlot(
-      object = pbmc_rna,
-      reduction = "umap"
+cls <- pbmc_rna@meta.data %>%
+  tibble::as_tibble(rownames = "cell") %>%
+  dplyr::select(cell,seurat_clusters)
+
+pbmc_rna@reductions$umap@cell.embeddings %>%
+  tibble::as_tibble(rownames = "cell") %>% 
+  dplyr::left_join(cls, by = "cell") %>% 
+  ggplot2::ggplot(
+      data = .,
+      mapping = aes(
+        x = umap_1,
+        y = umap_2,
+        colour = seurat_clusters
+      )
+    ) +
+  geom_point(
+      size = 0.1
     ) +
   theme_bw() +
   theme(
-    aspect.ratio = 1
-  )
+      aspect.ratio = 1,
+      legend.position = "none"
+    )
 ```
 
 ### [3.5.] Calculate cluster dendogram
@@ -610,14 +626,30 @@ pbmc_alt <- Seurat::RunUMAP(
     dims = 1:10,
     verbose = FALSE
   )
-Seurat::DimPlot(
-      object = pbmc_alt,
-      reduction = "umap"
+
+cls <- pbmc_alt@meta.data %>%
+  tibble::as_tibble(rownames = "cell") %>%
+  dplyr::select(cell,seurat_clusters)
+pbmc_alt@reductions$umap@cell.embeddings %>%
+  tibble::as_tibble(rownames = "cell") %>% 
+  dplyr::left_join(cls, by = "cell") %>% 
+  ggplot2::ggplot(
+      data = .,
+      mapping = aes(
+        x = umap_1,
+        y = umap_2,
+        colour = seurat_clusters
+      )
+    ) +
+  geom_point(
+      size = 0.5
     ) +
   theme_bw() +
   theme(
-      aspect.ratio = 1
+      aspect.ratio = 1,
+      legend.position = "none"
     )
+
 base::remove(pbmc_alt,pbmc_alt_data)
 ```
 
@@ -721,15 +753,31 @@ pbmc_alt <- Seurat::RunUMAP(
     dims = 1:10,
     verbose = FALSE
   )
-Seurat::DimPlot(
-      object = pbmc_alt,
-      reduction = "umap"
+
+cls <- pbmc_alt@meta.data %>%
+  tibble::as_tibble(rownames = "cell") %>%
+  dplyr::select(cell,seurat_clusters)
+pbmc_alt@reductions$umap@cell.embeddings %>%
+  tibble::as_tibble(rownames = "cell") %>% 
+  dplyr::left_join(cls, by = "cell") %>% 
+  ggplot2::ggplot(
+      data = .,
+      mapping = aes(
+        x = umap_1,
+        y = umap_2,
+        colour = seurat_clusters
+      )
+    ) +
+  geom_point(
+      size = 0.1
     ) +
   theme_bw() +
   theme(
-    aspect.ratio = 1
-  )
-base::remove(pbmc_alt,pbmc_alt_data)
+      aspect.ratio = 1,
+      legend.position = "none"
+    )
+
+# base::remove(pbmc_alt,pbmc_alt_data)
 ```
 
 ---
@@ -826,7 +874,7 @@ ggplot2::ggplot(
 ```
 
 #### Please, insert & run your own code for Assignment question 10 here.
-#### Make sure to save the resulting Seurat object as 'pbmc_qc'.
+#### Make sure to save the resulting Seurat object as 'pbmc_qc' as shown in the next code chunk [4.7.].
 
 ### [4.7.] Save & load the "nFeature_RNA"-cleaned and annotated version pbmc_qc
 ```{r eval=FALSE}
@@ -842,12 +890,17 @@ base::saveRDS(
   )
 ```
 
+#### In case, problems occur with solving Assignment question 10 and no 'pbmc_qc' dataset
+#### could be constructed, the next chunk will read in a backup 'pbmc_qc' dataset.
+
+### [4.8.] Read in 'pbmc_qc' dataset
 ```{r eval=FALSE}
 pbmc_qc <- base::list.files(
       path = here::here("output_data"),
       full.names = TRUE
     ) %>%
-  stringr::str_subset("RNA_qc.rds") %>%
+  stringr::str_subset("pbmc_RNA_qc") %>%
+  dplyr::last() %>% 
   base::readRDS(
       file = .
     )
@@ -962,11 +1015,22 @@ ref <- Seurat::UpdateSeuratObject(object = ref)
 
 ### [5.5.] Inspect reference dataset
 ```{r}
-# utils::str(ref)
-# ref@meta.data
-Seurat::DimPlot(
-      object = ref,
-      reduction = "umap"
+cls <- ref@meta.data %>%
+  tibble::as_tibble(rownames = "cell") %>%
+  dplyr::select(cell,celltype)
+ref@reductions$umap@cell.embeddings %>%
+  tibble::as_tibble(rownames = "cell") %>% 
+  dplyr::left_join(cls, by = "cell") %>% 
+  ggplot2::ggplot(
+      data = .,
+      mapping = aes(
+        x = UMAP_1,
+        y = UMAP_2,
+        colour = celltype
+      )
+    ) +
+  geom_point(
+      size = 0.5
     ) +
   theme_bw() +
   theme(
@@ -997,11 +1061,22 @@ pbmc_qc <- Seurat::AddMetaData(
 
 ### [5.7.] Inspect & plot data
 ```{r}
-# pbmc_qc@meta.data
-Seurat::DimPlot(
-      object = pbmc_qc,
-      reduction = "umap",
-      group.by = "predicted.id"
+cls <- pbmc_qc@meta.data %>%
+  tibble::as_tibble(rownames = "cell") %>%
+  dplyr::select(cell,predicted.id)
+pbmc_qc@reductions$umap@cell.embeddings %>%
+  tibble::as_tibble(rownames = "cell") %>% 
+  dplyr::left_join(cls, by = "cell") %>% 
+  ggplot2::ggplot(
+      data = .,
+      mapping = aes(
+        x = umap_1,
+        y = umap_2,
+        colour = predicted.id
+      )
+    ) +
+  geom_point(
+      size = 0.1
     ) +
   theme_bw() +
   theme(

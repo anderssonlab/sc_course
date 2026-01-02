@@ -14,6 +14,8 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ### [0.0.] Install necessary packages
 ```{r eval=FALSE}
+# utils::install.packages("Signac") # Incompatible with current R version
+remotes::install_version(package = 'Signac', version = package_version('1.13.0'))
 BiocManager::install("Rsamtools")
 BiocManager::install("EnsDb.Hsapiens.v86")
 BiocManager::install("biovizBase")
@@ -24,8 +26,6 @@ BiocManager::install("TFBSTools")
 BiocManager::install("JASPAR2020")
 BiocManager::install("motifmatchr")
 BiocManager::install("chromVAR")
-# utils::install.packages("Signac") # Incompatible with current R version
-remotes::install_version(package = 'Signac', version = package_version('1.13.0'))
 utils::install.packages("ggseqlogo")
 utils::install.packages("ggforce")
 ```
@@ -423,12 +423,16 @@ Seurat::FeaturePlot(
 #### see [4.11.] in "20241014_scRNAseq_analysis.Rmd" for 'pbmc_qc' dataset
 ```{r warning=FALSE}
 # Import scRNA-seq seurat object  
-pbmc_rna <- base::readRDS(
-    file = base::paste0(
-      here::here("output_data"),
-      "/20251230_pbmc_RNA_qc_annotated.rds"
+pbmc_qc <- base::list.files(
+      path = here::here("output_data"),
+      full.names = TRUE
+    ) %>%
+  stringr::str_subset("pbmc_RNA_qc") %>%
+  dplyr::last() %>% 
+  base::readRDS(
+      file = .
     )
-  )
+
 pbmc_rna <- SeuratObject::UpdateSeuratObject(
     object = pbmc_rna
   )
