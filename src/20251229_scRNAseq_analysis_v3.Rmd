@@ -16,6 +16,30 @@ knitr::opts_chunk$set(echo = TRUE)
 ## [0.0.] Install necessary packages
 ```{r eval=FALSE}
 utils::install.packages("here")
+if(base::find.package("ggplot2")){
+    utils::remove.packages("ggplot2")
+  }
+utils::install.packages(
+    "https://cran.r-project.org/src/contrib/Archive/ggplot2/ggplot2_3.4.4.tar.gz",
+    type = "source",
+    repos = NULL
+  )
+if(base::find.package("patchwork")){
+    utils::remove.packages("patchwork")
+  }
+utils::install.packages(
+    "https://cran.r-project.org/src/contrib/Archive/patchwork/patchwork_1.1.3.tar.gz",
+    type = "source",
+    repos = NULL
+  )
+if(base::find.package("cowplot")){
+    utils::remove.packages("cowplot")
+  }
+utils::install.packages(
+    "https://cran.r-project.org/src/contrib/Archive/cowplot/cowplot_1.1.1.tar.gz",
+    type = "source",
+    repos = NULL
+  )
 utils::install.packages("tidyverse", force = TRUE)
 utils::install.packages("scales", force = TRUE)
 utils::install.packages("ggplot2", force = TRUE)
@@ -44,11 +68,13 @@ utils::install.packages("enrichR") # used in [5.9.]
 ```
 
 ### [0.1.] Check version of packages
-#### Worfklow relies on Seurat v5 (v5.1.0).
+#### Worfklow relies on Seurat v5 (v5.0.0 or v5.1.0).
 ```{r eval=FALSE}
-utils::packageVersion("Seurat")
-utils::packageVersion("tidyverse")
-utils::packageVersion("ggplot2")
+utils::packageVersion("Seurat") # 5.0.0
+utils::packageVersion("tidyverse") # 2.0.0
+utils::packageVersion("ggplot2") # 3.4.4
+utils::packageVersion("patchwork") # 1.1.3
+utils::packageVersion("cowplot") # 1.2.0
 ```
 
 ### [0.3.] Load necessary packages
@@ -1059,32 +1085,7 @@ pbmc_qc <- Seurat::AddMetaData(
   )
 ```
 
-### [5.7.] Inspect & plot data
-```{r}
-cls <- pbmc_qc@meta.data %>%
-  tibble::as_tibble(rownames = "cell") %>%
-  dplyr::select(cell,predicted.id)
-pbmc_qc@reductions$umap@cell.embeddings %>%
-  tibble::as_tibble(rownames = "cell") %>% 
-  dplyr::left_join(cls, by = "cell") %>% 
-  ggplot2::ggplot(
-      data = .,
-      mapping = aes(
-        x = umap_1,
-        y = umap_2,
-        colour = predicted.id
-      )
-    ) +
-  geom_point(
-      size = 0.1
-    ) +
-  theme_bw() +
-  theme(
-      aspect.ratio = 1
-    )
-```
-
-### [5.8.] Label predicted IDs onto the UMAP dimension reduction
+### [5.7.] Label predicted IDs onto the UMAP dimension reduction
 ```{r}
 pal <- base::c(
     "#3255A4", "#A4DBE8", "#8C8279",

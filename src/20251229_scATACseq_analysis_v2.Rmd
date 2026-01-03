@@ -364,9 +364,22 @@ base::saveRDS(
   object = pbmc_atac,
   file = base::paste0(
       here::here("output_data/"),
-      "pbmc_ATAC.rds"
+      base::format(base::Sys.time(),"%Y%m%d"),
+      "_pbmc_atac",
+      ".rds"
     )
   )
+```
+
+```{r}
+pbmc_atac <- base::list.files(
+      path = here::here("output_data"),
+      full.names = TRUE
+    ) %>%
+  stringr::str_subset("pbmc_atac") %>%
+  base::readRDS(
+      file = .
+    )
 ```
 
 ---
