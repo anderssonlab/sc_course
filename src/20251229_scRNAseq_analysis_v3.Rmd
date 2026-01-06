@@ -9,7 +9,7 @@ date: "2025-12-29"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
----
+
 
 ## [0.] Prerequisites
 
@@ -84,7 +84,6 @@ base::library("tidyverse")
 base::library("enrichR")
 ```
 
----
 
 ## [1.] Read in & preprocess data
 
@@ -239,7 +238,6 @@ pbmc_rna <- base::subset(
 # 100 - (base::length(pbmc_rna@assays$RNA@layers$counts@x) / base::prod(pbmc_rna@assays$RNA@layers$counts@Dim))*100 # Sparsity
 ```
 
----
 
 ## [2.] Process data - Normalize, scale, reduce dimensions
 
@@ -259,8 +257,6 @@ utils::str(pbmc_rna)
 pbmc_rna@assays$RNA@layers$data
 pbmc_rna[["RNA"]]$data
 ```
-
----
 
 ### [2.2.] Find most highly variably expressed genes
 #### Identification of features (genes) with highest variability across all cells to apply variance-stabilizing data transformation.
@@ -410,8 +406,6 @@ Seurat::JackStrawPlot(
   )
 ```
 
----
-
 ## [3.] Cell clustering
 #### Seurat performs clustering based on PCA scores of features (genes) in cells.
 #### Choice of included PCAs based on resampling test and Elbow plots.
@@ -546,7 +540,6 @@ Seurat::DimPlot(
   )
 ```
 
----
 ### [3.8.] Save & load data Seurat object 'pbmc_rna'
 ```{r eval=FALSE}
 base::saveRDS(
@@ -571,8 +564,6 @@ pbmc_rna <- base::list.files(
       file = .
     )
 ```
-
----
 
 ## [4.] Additional analysis & quality checks
 
@@ -678,8 +669,6 @@ pbmc_alt@reductions$umap@cell.embeddings %>%
 
 base::remove(pbmc_alt,pbmc_alt_data)
 ```
-
----
 
 ### [4.2.] Subsample reads in gene expression matrix
 #### From 38.067.789 to 10.000.000 or 5.000.000.
@@ -806,8 +795,6 @@ pbmc_alt@reductions$umap@cell.embeddings %>%
 # base::remove(pbmc_alt,pbmc_alt_data)
 ```
 
----
-
 ### [4.4.] Read out metainfo & UMAP data
 ```{r}
 assertthat::are_equal(
@@ -920,7 +907,7 @@ base::saveRDS(
 #### could be constructed, the next chunk will read in a backup 'pbmc_qc' dataset.
 
 ### [4.8.] Read in 'pbmc_qc' dataset
-```{r eval=FALSE}
+```{r}
 pbmc_qc <- base::list.files(
       path = here::here("output_data"),
       full.names = TRUE
@@ -930,10 +917,8 @@ pbmc_qc <- base::list.files(
   base::readRDS(
       file = .
     )
-utils::str(pbmc_qc)
+# utils::str(pbmc_qc)
 ```
-
----
 
 ## [5.] Marker genes
 
@@ -1147,8 +1132,6 @@ ggplot2::ggplot(
     )
 ```
 
----
-
 #### Extra question: Are platelets a real cluster or ambient RNA?
 
 ```{r eval=FALSE}
@@ -1156,13 +1139,11 @@ meta_qc_comb %>%
   dplyr::filter(predicted.id == "Platelet")
 ```
 
----
-
 ## [6.] Supplement / Appendix
 
 ### [6.0.] SCTransform
 #### No QC filtering performed, which leads to inclusion of contaminations again.
-```{r}
+```{r eval=FALSE}
 base::set.seed(1L)
 pbmc_sct <- Seurat::CreateSeuratObject(
     counts = pbmc_data$`Gene Expression`,
@@ -1219,12 +1200,8 @@ Seurat::DimPlot(
     )
 ```
 
----
-
 #### Extra question: Does SCTransform recapitulate the cell type distribution identified via transferred annotations better?
 #### (e.g., better separation of small clusters like 'Double negative T-cells')
-
----
 
 ## [7.] Additional markdowns & vignettes for further analysis & reading
 
