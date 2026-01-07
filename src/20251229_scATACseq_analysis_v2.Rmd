@@ -45,7 +45,6 @@ base::library(BSgenome.Hsapiens.UCSC.hg38) # Human genome sequence database
 base::library(JASPAR2020) # Transcription factor motif database
 ```
 
----
 
 ## [1.] Import data and create Seurat/Signac object
 
@@ -143,7 +142,6 @@ GenomicRanges::granges(pbmc_atac)
 Signac::Annotation(pbmc_atac)
 ```
 
----
 
 ## [2.] Quality control (QC)
 
@@ -287,7 +285,6 @@ pbmc_atac <- base::subset(
   )
 ```
 
----
 
 ## [3.] Dimensionality reduction and clustering
 
@@ -382,7 +379,6 @@ pbmc_atac <- base::list.files(
     )
 ```
 
----
 
 ## [4.] Cell type annotation
 
@@ -539,7 +535,6 @@ Seurat::DimPlot(
 #### macs2 and may take hours to compute. Therefore, we will not perform this 
 #### step as part of this course.
 
----
 
 ## [5.]  Supplement / Appendix - Differential accessibility analysis
 
@@ -618,7 +613,6 @@ Signac::CoveragePlot(
   )
 ```
 
----
 
 ## [6.]  Supplement / Appendix - Motif analysis
 
@@ -703,7 +697,6 @@ Signac::MotifPlot(
   )
 ```
 
----
 
 ## [7.]  Supplement / Appendix - scATAC+scRNA multiome analysis: Linking peaks to genes
 
@@ -773,7 +766,6 @@ Signac::CoveragePlot(
   )
 ```
 
----
 
 ## [8.] Save Seurat object
 ```{r eval=FALSE}
@@ -786,7 +778,6 @@ base::saveRDS(
   )
 ```
 
----
 
 ## [9.] Additional vignettes for further reading & analysis
 

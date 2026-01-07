@@ -9,14 +9,12 @@ date: "2025-12-29"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-
-
 ## [0.] Prerequisites
 
 ## [0.0.] Install necessary packages
 ```{r eval=FALSE}
 utils::install.packages("here")
-if(base::find.package("ggplot2")){
+if(base::dir.exists(base::find.package("ggplot2"))){
     utils::remove.packages("ggplot2")
   }
 utils::install.packages(
@@ -24,7 +22,7 @@ utils::install.packages(
     type = "source",
     repos = NULL
   )
-if(base::find.package("patchwork")){
+if(base::dir.exists(base::find.package("patchwork"))){
     utils::remove.packages("patchwork")
   }
 utils::install.packages(
@@ -32,7 +30,7 @@ utils::install.packages(
     type = "source",
     repos = NULL
   )
-if(base::find.package("cowplot")){
+if(base::dir.exists(base::find.package("cowplot"))){
     utils::remove.packages("cowplot")
   }
 utils::install.packages(
@@ -40,10 +38,16 @@ utils::install.packages(
     type = "source",
     repos = NULL
   )
+
+utils::install.packages(
+    "https://cran.r-project.org/src/contrib/Archive/Seurat/Seurat_5.0.0.tar.gz",
+    type = "source",
+    repos = NULL
+  )
 utils::install.packages("tidyverse", force = TRUE)
 utils::install.packages("scales", force = TRUE)
 utils::install.packages("ggplot2", force = TRUE)
-utils::install.packages("Seurat", force = TRUE)
+# utils::install.packages("Seurat", force = TRUE)
 utils::install.packages("enrichR")
 devtools::install_github('immunogenomics/presto')
 utils::install.packages("assertthat")
@@ -64,7 +68,6 @@ utils::install.packages("sessioninfo")
 utils::install.packages("urlchecker")
 utils::install.packages("usethis")
 devtools::install_github("wjawaid/enrichR")
-utils::install.packages("enrichR") # used in [5.9.]
 ```
 
 ### [0.1.] Check version of packages
@@ -152,7 +155,8 @@ pbmc_multi@assays # see Layers
 #### Dimensions: 26315 x 10987, Sparsity: 94.39873
 ```{r eval=FALSE}
 utils::str(pbmc_rna)
-base::dim(pbmc_rna) # base::dim(pbmc_rna@assays$RNA@layers$counts)
+base::dim(pbmc_rna)
+base::dim(pbmc_rna@assays$RNA@layers$counts)
 pbmc_rna@assays$RNA@layers$counts[1:5,1:5]
 100 - (base::length(pbmc_rna@assays$RNA@layers$counts@x) / base::prod(pbmc_rna@assays$RNA@layers$counts@Dim))*100 # Sparsity
 ```
@@ -160,8 +164,6 @@ pbmc_rna@assays$RNA@layers$counts[1:5,1:5]
 ### [1.5.] Detect & count mitochondrial gene contribution
 #### On terminal:  gunzip -c features.tsv.gz | cut -f2 | grep '^MT-' | head
 ```{r}
-# base::dimnames(pbmc_rna@assays$RNA@features@.Data)[[1]]
-# base::colnames(pbmc_rna)
 feat_names <- base::rownames(pbmc_rna) 
 feat_names[base::grep("^MT-",feat_names)]
   
@@ -173,15 +175,6 @@ pbmc_rna[["percent.mt"]] <- Seurat::PercentageFeatureSet(
 
 ### [1.6.] Inspect & visualize features, including mitochondrial gene contribution
 ```{r}
-# pbmc_rna@meta.data # Inspect new variable
-# base::colnames(pbmc_rna[[]])
-
-# Seurat::VlnPlot(
-#     object = pbmc_rna,
-#     features = "nCount_RNA", # base::colnames(pbmc_rna[[]])[2:4],
-#     layer = "counts"
-#     # ncol = 3
-#   )
 base::mean(pbmc_rna@meta.data$percent.mt)
 
 Seurat::FeatureScatter(
@@ -234,10 +227,9 @@ pbmc_rna <- base::subset(
     x = pbmc_rna,
     subset = nFeature_RNA > 200 & nFeature_RNA < 2500 & percent.mt < 10
   )
-# base::dim(pbmc_rna)
-# 100 - (base::length(pbmc_rna@assays$RNA@layers$counts@x) / base::prod(pbmc_rna@assays$RNA@layers$counts@Dim))*100 # Sparsity
-```
 
+100 - (base::length(pbmc_rna@assays$RNA@layers$counts@x) / base::prod(pbmc_rna@assays$RNA@layers$counts@Dim))*100 # Sparsity
+```
 
 ## [2.] Process data - Normalize, scale, reduce dimensions
 
@@ -271,9 +263,6 @@ pbmc_rna <- Seurat::FindVariableFeatures(
 
 ### [2.3.] Inspect variable genes
 ```{r}
-# utils::str(pbmc_rna)
-# pbmc_rna@assays$RNA@meta.data
-  
 lbls <- Seurat::VariableFeatures(object = pbmc_rna)[1:10]
 raw <- Seurat::VariableFeaturePlot(
     object = pbmc_rna
@@ -315,10 +304,6 @@ pbmc_rna <- Seurat::ScaleData(
 #### RunPCA when called on a Seurat objects operates on the scale.data slot of the assay by default.
 #### Seurat:::PrepDR5() function prepares internally the data to be used for PCA.
 ```{r}
-# Seurat::DefaultAssay(object = pbmc_rna)
-# SeuratObject::Layers(object = pbmc_rna)
-# SeuratObject::LayerData(object = pbmc_rna, layer = "scale.data")[1:10,1:10]
-
 pbmc_rna <- Seurat::RunPCA(
     object = pbmc_rna,
     features = Seurat::VariableFeatures(object = pbmc_rna),
@@ -332,10 +317,6 @@ pbmc_rna <- Seurat::RunPCA(
 
 ### [2.6.] Inspect PCA results
 ```{r}
-# utils::str(pbmc_rna)
-# pbmc_rna[["pca"]]
-# pbmc_rna@reductions$pca@feature.loadings
-
 base::print(
     pbmc_rna[["pca"]],
     dims = 1:3,
@@ -416,9 +397,6 @@ Seurat::JackStrawPlot(
 #### Uses RcppAnnoy::AnnoyEuclidean and RANN::nn2 (NNHelper) for calculating.
 #### The shared nearest neighbour graph SNN_SmallestNonzero_Dist imnplemented via Rcpp (ComputeSNN).
 ```{r}
-# Seurat::DefaultAssay(object = pbmc_rna) # assay: "RNA"
-# SeuratObject::Embeddings(object = pbmc_rna[["pca"]]) # data.use: cell x PCA
-
 pbmc_rna <- Seurat::FindNeighbors(
     object = pbmc_rna,
     dims = 1:10, # 1:10 / 1:5 / 1:4
@@ -440,7 +418,7 @@ pbmc_rna@graphs
 ```{r}
 pbmc_rna <- Seurat::FindClusters(
     object = pbmc_rna,
-    resolution = 0.3, # <---- granularity parameter
+    resolution = 0.3, # <---- granularity parameter, original res 0.3
     verbose = FALSE,
     random.seed = 0
   )
@@ -464,11 +442,20 @@ cls <- pbmc_rna@meta.data %>%
   tibble::as_tibble(rownames = "cell") %>%
   dplyr::select(cell,seurat_clusters)
 
-pbmc_rna@reductions$umap@cell.embeddings %>%
+cls_umap <- pbmc_rna@reductions$umap@cell.embeddings %>%
   tibble::as_tibble(rownames = "cell") %>% 
-  dplyr::left_join(cls, by = "cell") %>% 
-  ggplot2::ggplot(
-      data = .,
+  dplyr::left_join(cls, by = "cell")
+
+cls_mid <- cls_umap %>% 
+  dplyr::group_by(seurat_clusters) %>%
+  dplyr::summarise(
+      pos_1 = base::mean(umap_1),
+      pos_2 = base::mean(umap_2),
+      .groups = "drop"
+    )
+
+ggplot2::ggplot(
+      data = cls_umap,
       mapping = aes(
         x = umap_1,
         y = umap_2,
@@ -477,6 +464,15 @@ pbmc_rna@reductions$umap@cell.embeddings %>%
     ) +
   geom_point(
       size = 0.1
+    ) +
+   ggrepel::geom_label_repel(
+      inherit.aes = FALSE,
+      data = cls_mid,
+      mapping = aes(
+          x = pos_1,
+          y = pos_2,
+          label = seurat_clusters
+        )
     ) +
   theme_bw() +
   theme(
@@ -497,9 +493,7 @@ pbmc_rna_ <- Seurat::BuildClusterTree(
     slot = "scale.data",
     verbose = FALSE
   )
-# utils::str(pbmc_rna_)
 
-# replaces Seurat::PlotClusterTree
 data.tree <- SeuratObject::Tool(
     object = pbmc_rna_,
     slot = "Seurat::BuildClusterTree"
@@ -508,26 +502,7 @@ ape::plot.phylo(x = data.tree, direction = "downwards")
 ape::nodelabels()
 ```
 
-### [3.6.] Evaluate cluster number as a function of cluster granularity / resolution
-#### Incompatibilities between ggplot2 & clustree likely renders this chunk unfunctional.
-```{r eval=FALSE}
-pbmc_rna_ <- pbmc_rna
-for(r in base::seq(0.1,1.2,0.1)){
-  pbmc_rna_ <- Seurat::FindClusters(
-      object = pbmc_rna_,
-      resolution = r,  # <---- granularity parameter
-      verbose = FALSE
-    )
-  }
-pbmc_rna_@meta.data
-
-clustree::clustree(
-    x = pbmc_rna_[[]],
-    prefix = "RNA_snn_res."
-  )
-```
-
-## [3.7.] Inspect various cluster definition granularities
+## [3.6.] Inspect various cluster definition granularities
 ```{r eval=FALSE}
 Seurat::DimPlot(
       object = pbmc_rna_,
@@ -540,7 +515,7 @@ Seurat::DimPlot(
   )
 ```
 
-### [3.8.] Save & load data Seurat object 'pbmc_rna'
+### [3.7.] Save & load data Seurat object 'pbmc_rna'
 ```{r eval=FALSE}
 base::saveRDS(
     object = pbmc_rna,
