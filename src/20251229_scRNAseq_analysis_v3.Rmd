@@ -342,42 +342,6 @@ pbmc_rna@reductions$pca@cell.embeddings %>%
     )
 ```
 
-```{r}
-seeder <- function(seed){
-  pbmc_rna <- Seurat::RunPCA(
-      object = pbmc_rna,
-      features = Seurat::VariableFeatures(object = pbmc_rna),
-      npcs = 50L,
-      verbose = FALSE,
-      seed.use = seed,
-      assay = "RNA", #default at this stage
-      layer = 'scale.data' # default
-    )
-  base::print(
-    pbmc_rna@reductions$pca@cell.embeddings %>%
-      tibble::as_tibble() %>% 
-      dplyr::select("PC_1","PC_2") %>%
-      ggplot2::ggplot(
-          data = .,
-          mapping = aes(
-            x = PC_1,
-            y = PC_2
-          )
-        ) +
-      geom_point(
-          size = 0.1
-        ) +
-      theme_bw() +
-      theme(
-          aspect.ratio = 1
-      )
-    )
-  }
-
-purrr::map(.x = base::seq(1,100), .f = seeder)
-```
-
-
 ### [2.7.] Inspect dimensionality of the data
 ```{r}
 Seurat::DimHeatmap(
