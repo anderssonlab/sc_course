@@ -298,7 +298,7 @@ pbmc_atac <- base::subset(
 ```{r}
 # Perform term frequency-inverse document frequency (TF-IDF) normalization
 # Normalizes 1) across cells to mitigate sequencing depth differences between cells &
-# across 2) peaks to boosf importance of rare peaks
+# across 2) peaks to boost importance of rare peaks
 pbmc_atac <- Signac::RunTFIDF(
     object = pbmc_atac
   )
