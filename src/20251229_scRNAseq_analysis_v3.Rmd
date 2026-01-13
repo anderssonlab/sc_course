@@ -418,7 +418,7 @@ pbmc_rna@graphs
 ```{r}
 pbmc_rna <- Seurat::FindClusters(
     object = pbmc_rna,
-    resolution = 0.1, # <---- granularity parameter, original res 0.3
+    resolution = 0.3, # <---- granularity parameter, original res 0.3
     verbose = FALSE,
     random.seed = 0
   )

@@ -196,16 +196,16 @@ Signac::DensityScatter(
     log_x = TRUE,
     quantiles = TRUE
   )
-# Seurat::VlnPlot(
-#     object = pbmc_atac,
-#     assay = 'peaks',
-#     features = base::c(
-#         'nCount_peaks', 'TSS.enrichment', 'blacklist_ratio',
-#         'nucleosome_signal', 'pct_reads_in_peaks'
-#       ),
-#     pt.size = 0.1,
-#     ncol = 5
-#   )
+Seurat::VlnPlot(
+    object = pbmc_atac,
+    assay = 'peaks',
+    features = base::c(
+        'nCount_peaks', 'TSS.enrichment', 'blacklist_ratio',
+        'nucleosome_signal', 'pct_reads_in_peaks'
+      ),
+    pt.size = 0.1,
+    ncol = 5
+  )
 ```
 
 #### Plot QC metrics individually
@@ -225,6 +225,7 @@ graphics::abline(
 # Plot distribution of TSS enrichment score
 graphics::hist(
     x = pbmc_atac$TSS.enrichment,
+    # breaks = 100,
     main = "TSS.enrichment"
   )
 # Indicate threshold
@@ -236,6 +237,7 @@ graphics::abline(
 # Plot distribution of total number of fragments in peaks
 graphics::hist(
     x = pbmc_atac$nCount_peaks,
+    # breaks = 100,
     main = "nCount_peaks"
   )
 # Indicate threshold
@@ -251,6 +253,7 @@ graphics::abline(
 # Plot distribution of fraction of fragments in peaks
 graphics::hist(
     x = pbmc_atac$pct_reads_in_peaks,
+    # breaks = 100,
     main = "pct_reads_in_peaks"
   )
 # Indicate threshold
@@ -262,6 +265,7 @@ graphics::abline(
 # Plot distribution of ratio reads in genomic blacklist regions
 graphics::hist(
     x = pbmc_atac$blacklist_ratio,
+    # breaks = 100,
     main = "blacklist_ratio"
   )
 # Indicate threshold
@@ -368,7 +372,7 @@ base::saveRDS(
   )
 ```
 
-```{r}
+```{r eval=FALSE}
 pbmc_atac <- base::list.files(
       path = here::here("output_data"),
       full.names = TRUE
@@ -443,7 +447,7 @@ pbmc_qc <- base::list.files(
     )
 
 pbmc_rna <- SeuratObject::UpdateSeuratObject(
-    object = pbmc_rna
+    object = pbmc_qc
   )
 
 # Find anchors between scATAC gene activity and scRNA gene expression
